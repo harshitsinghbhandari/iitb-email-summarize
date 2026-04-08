@@ -25,7 +25,7 @@ A sleek, AI-powered mail viewer designed for **IIT Bombay students**. It fetches
     - You must either open the Ollama application from your apps menu **OR** run `ollama serve` in a separate terminal window.
   - **Pull the Model**:
     ```bash
-    ollama pull qwen2.5:0.8b
+    ollama pull qwen3.5:0.8b
     ```
 
 ### Installation
