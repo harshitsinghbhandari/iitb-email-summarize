@@ -15,6 +15,7 @@
             --text-muted: #94a3b8;
             --accent: #3b82f6;
             --border: rgba(255, 255, 255, 0.08);
+            --error: #ef4444;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
@@ -128,16 +129,60 @@
             animation: spin 1s infinite linear; margin: 5rem auto;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Toast Notification */
+        #toast-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            z-index: 1000;
+        }
+
+        .toast {
+            background: var(--surface-color);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            box-shadow: 0 10px 15px rgba(0,0,0,0.2);
+            animation: slideIn 0.3s forwards;
+            max-width: 300px;
+            border-left: 4px solid var(--accent);
+        }
+
+        .toast.error { border-left-color: var(--error); }
+
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
     </style>
 </head>
 <body>
     <div class="container" id="detail-container">
         <div class="loader"></div>
     </div>
+    <div id="toast-container"></div>
 
     <script>
         const uid = "{{ uid }}";
         const container = document.getElementById('detail-container');
+        const toastContainer = document.getElementById('toast-container');
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type === 'error' ? 'error' : ''}`;
+            toast.innerText = message;
+            toastContainer.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                toast.style.transition = 'all 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
 
         async function fetchEmailDetail() {
             try {
@@ -147,10 +192,18 @@
                 if (data.status === 'success') {
                     renderDetail(data.data);
                 } else {
-                    container.innerHTML = `<h1 style="text-align:center">Error</h1><p style="text-align:center">${data.message}</p>`;
+                    container.innerHTML = `<div class="detail-card" style="text-align:center">
+                        <h1 style="color:var(--error)">Error</h1>
+                        <p>${data.message}</p>
+                        <a href="/" class="back-btn" style="margin-top:2rem">← Back to Inbox</a>
+                    </div>`;
                 }
             } catch (e) {
-                container.innerHTML = `<h1 style="text-align:center">Error</h1><p style="text-align:center">Failed to load email.</p>`;
+                container.innerHTML = `<div class="detail-card" style="text-align:center">
+                    <h1 style="color:var(--error)">Error</h1>
+                    <p>Failed to load email.</p>
+                    <a href="/" class="back-btn" style="margin-top:2rem">← Back to Inbox</a>
+                </div>`;
             }
         }
 
@@ -194,17 +247,18 @@
                 const data = await response.json();
                 if (data.status === 'success') {
                     btn.innerText = "Sent! ✅";
+                    showToast("Successfully sent to Discord!");
                     setTimeout(() => {
                         btn.disabled = false;
                         btn.innerText = originalText;
                     }, 3000);
                 } else {
-                    alert("Error: " + data.message);
+                    showToast(data.message || "Failed to send", "error");
                     btn.disabled = false;
                     btn.innerText = originalText;
                 }
             } catch (e) {
-                alert("Failed to send to Discord.");
+                showToast("Network error while sending to Discord", "error");
                 btn.disabled = false;
                 btn.innerText = originalText;
             }

@@ -1,6 +1,9 @@
 import os
+import logging
 from dotenv import load_dotenv
 import requests
+
+logger = logging.getLogger("notify")
 
 # Load .env from the notify directory
 env_path = os.path.join(os.path.dirname(__file__), '.env')
@@ -12,15 +15,11 @@ DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 def send_to_discord(email_data, summary):
     """
     Sends an email summary to a Discord channel via webhook.
-
-    :param email_data: Dictionary containing email metadata (subject, sender, date)
-    :param summary: The AI-generated summary text
-    :return: Tuple (success: bool, message: str)
     """
     if not DISCORD_WEBHOOK_URL:
-        return False, "Discord Webhook URL not configured."
+        logger.warning("Discord Webhook URL not configured in .env")
+        return False, "Discord Webhook URL not configured. Please check your .env file."
 
-    # Construct a clean embed for Discord
     payload = {
         "embeds": [
             {
@@ -54,11 +53,15 @@ def send_to_discord(email_data, summary):
         response = requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=10)
         response.raise_for_status()
         return True, "Successfully sent to Discord."
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 404:
+            return False, "Discord Webhook URL is invalid (404 Not Found)."
+        return False, f"Discord API Error: {e.response.status_code}"
     except Exception as e:
-        return False, f"Error sending to Discord: {str(e)}"
+        logger.error(f"Error sending to Discord: {e}")
+        return False, f"Failed to send to Discord: {str(e)}"
 
 if __name__ == "__main__":
-    # Quick manual test
     test_email = {"subject": "Test Subject", "sender": "test@example.com", "date": "Today"}
     test_summary = "This is a test summary."
     success, msg = send_to_discord(test_email, test_summary)

@@ -15,6 +15,7 @@
             --text-muted: #94a3b8;
             --accent: #3b82f6;
             --border: rgba(255, 255, 255, 0.08);
+            --error: #ef4444;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
@@ -109,9 +110,46 @@
             animation: spin 1s infinite linear;
         }
 
+        /* Toast Notification */
+        #toast-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            z-index: 1000;
+        }
+
+        .toast {
+            background: var(--surface-color);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            box-shadow: 0 10px 15px rgba(0,0,0,0.2);
+            animation: slideIn 0.3s forwards;
+            max-width: 300px;
+            border-left: 4px solid var(--accent);
+        }
+
+        .toast.error { border-left-color: var(--error); }
+
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        .error-state {
+            text-align: center;
+            padding: 3rem;
+            background: var(--surface-color);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+        }
+        .error-state h2 { color: var(--error); margin-bottom: 1rem; }
     </style>
 </head>
 <body>
@@ -120,20 +158,50 @@
     </header>
 
     <div class="container" id="email-container"></div>
+    <div id="toast-container"></div>
 
     <script>
         const container = document.getElementById('email-container');
+        const toastContainer = document.getElementById('toast-container');
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type === 'error' ? 'error' : ''}`;
+            toast.innerText = message;
+            toastContainer.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                toast.style.transition = 'all 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
 
         async function fetchEmails() {
             try {
                 const res = await fetch('/api/emails');
                 const data = await res.json();
-                if (data.status === 'success') renderEmails(data.data);
-            } catch (e) { console.error(e); }
+                if (data.status === 'success') {
+                    renderEmails(data.data);
+                } else {
+                    container.innerHTML = `
+                        <div class="error-state">
+                            <h2>Connection Error</h2>
+                            <p>${data.message}</p>
+                        </div>
+                    `;
+                }
+            } catch (e) {
+                showToast("Failed to connect to server", "error");
+            }
         }
 
         function renderEmails(emails) {
             container.innerHTML = '';
+            if (emails.length === 0) {
+                container.innerHTML = '<div class="error-state"><p>No emails found in inbox.</p></div>';
+                return;
+            }
             emails.forEach((email, i) => {
                 const card = document.createElement('div');
                 card.className = 'email-card';
@@ -178,10 +246,12 @@
                         if (data.status === 'success') {
                             textEl.innerHTML = marked.parse(data.summary);
                         } else {
-                            textEl.innerText = "Error fetching summary.";
+                            textEl.innerText = data.message || "Error fetching summary.";
+                            showToast(data.message || "Summary failed", "error");
                         }
                     } catch (e) {
                         textEl.innerText = "Failed to load summary.";
+                        showToast("Server error while summarizing", "error");
                     }
                 }
             }

@@ -1,24 +1,37 @@
 import ssl
+import logging
 from imap_tools import MailBox
-from .config import IMAP_SERVER, IMAP_PORT, IMAP_USERNAME, IMAP_PASSWORD, MAILBOX
+from .config import IMAP_SERVER, IMAP_PORT, IMAP_USERNAME, IMAP_PASSWORD, MAILBOX, IGNORE_EMAILS, EMAILS_TO_FETCH
+
+logger = logging.getLogger("mail_fetch")
+
+def _get_imap_context():
+    """Helper to create a consistent SSL context for academic networks."""
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    context.set_ciphers('DEFAULT@SECLEVEL=1')
+    return context
+
+def _handle_imap_error(e, context_msg=""):
+    """Centralized IMAP error handling with helpful messages."""
+    err_str = str(e).lower()
+    if "authenticate" in err_str or "login failed" in err_str:
+        msg = "Authentication failed: Please check your IMAP credentials or SSO token."
+    elif "connection" in err_str or "timeout" in err_str:
+        msg = "Connection failed: Could not reach the IMAP server. Check your internet or VPN."
+    else:
+        msg = f"IMAP Error: {str(e)}"
+    
+    logger.error(f"{context_msg} {msg}")
+    return msg
 
 def get_last_10_emails():
-    """Reads emails from the configured IMAP mailbox, filtering out ignored addresses, until the configured limit is reached."""
+    """Reads emails from the configured IMAP mailbox, filtering out ignored addresses."""
     try:
-        # Create a context that supports older TLS versions if needed
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
-        # Allow older ciphers and lower security levels often found in academic networks
-        context.set_ciphers('DEFAULT@SECLEVEL=1')
-
-        # Connect to the IMAP server and login with the SSL context
-        from .config import IGNORE_EMAILS, EMAILS_TO_FETCH
+        context = _get_imap_context()
         with MailBox(IMAP_SERVER, port=IMAP_PORT, ssl_context=context).login(IMAP_USERNAME, IMAP_PASSWORD, initial_folder=MAILBOX) as mailbox:
             emails = []
-            # Fetch emails in reverse order (newest first).
-            # Since fetch() returns an iterator, we can efficiently loop through all emails
-            # and stop as soon as we collect the configured number of non-ignored ones.
             for msg in mailbox.fetch(reverse=True):
                 if msg.from_ not in IGNORE_EMAILS:
                     emails.append({
@@ -30,38 +43,25 @@ def get_last_10_emails():
                     })
                     if len(emails) == EMAILS_TO_FETCH:
                         break
-
             return emails
     except Exception as e:
-        print(f"Error reading emails: {e}")
-        return []
+        return {"error": _handle_imap_error(e, "While fetching latest emails:")}
 
 def get_all_uids():
     """Returns a list of all available email UIDs in the mailbox."""
     try:
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
-        context.set_ciphers('DEFAULT@SECLEVEL=1')
-
+        context = _get_imap_context()
         with MailBox(IMAP_SERVER, port=IMAP_PORT, ssl_context=context).login(IMAP_USERNAME, IMAP_PASSWORD, initial_folder=MAILBOX) as mailbox:
-            # fetch() returns an iterator over messages. We just want the UIDs.
-            # To get all, we can use mailbox.fetch() without limit
             return [msg.uid for msg in mailbox.fetch()]
     except Exception as e:
-        print(f"Error fetching all UIDs: {e}")
+        logger.error(f"Error fetching all UIDs: {e}")
         return []
 
 def get_email_by_uid(uid):
     """Fetches a single email by its unique ID."""
     try:
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
-        context.set_ciphers('DEFAULT@SECLEVEL=1')
-        
+        context = _get_imap_context()
         with MailBox(IMAP_SERVER, port=IMAP_PORT, ssl_context=context).login(IMAP_USERNAME, IMAP_PASSWORD, initial_folder=MAILBOX) as mailbox:
-            # Search for the specific email by UID
             for msg in mailbox.fetch(f'UID {uid}', limit=1):
                 return {
                     "uid": msg.uid,
@@ -72,5 +72,5 @@ def get_email_by_uid(uid):
                 }
         return None
     except Exception as e:
-        print(f"Error fetching email {uid}: {e}")
-        return None
+        err = _handle_imap_error(e, f"While fetching email UID {uid}:")
+        return {"error": err}

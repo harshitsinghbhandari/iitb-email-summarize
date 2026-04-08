@@ -2,10 +2,12 @@ import requests
 import json
 import os
 import hashlib
+import logging
 from datetime import datetime, timedelta, timezone
 from .config import MODEL, OLLAMA_BASE_URL
 from .PROMPT import SYSTEM_PROMPT
 
+logger = logging.getLogger("summarize_mail")
 SUMMARIES_FILE = "summaries.json"
 
 def get_prompt_hash():
@@ -24,45 +26,39 @@ def load_summaries():
         with open(SUMMARIES_FILE, "r") as f:
             data = json.load(f)
 
-        # Ensure data is in the expected format
         if not isinstance(data, dict) or "prompt_hash" not in data or "summaries" not in data:
             return {"prompt_hash": get_prompt_hash(), "summaries": {}}
 
-        # Check if the system prompt has changed
         current_hash = get_prompt_hash()
         if data["prompt_hash"] != current_hash:
-            print("System prompt changed. Invalidating summary cache...")
+            logger.info("System prompt changed. Invalidating summary cache...")
             return {"prompt_hash": current_hash, "summaries": {}}
 
         return data
     except Exception as e:
-        print(f"Error loading summaries: {e}")
+        logger.error(f"Error loading summaries: {e}")
         return {"prompt_hash": get_prompt_hash(), "summaries": {}}
 
 def save_summaries(data):
     """Saves the cache data (including prompt hash) to the JSON file."""
     try:
-        # Always ensure the current prompt hash is saved
         data["prompt_hash"] = get_prompt_hash()
         with open(SUMMARIES_FILE, "w") as f:
             json.dump(data, f, indent=2)
     except Exception as e:
-        print(f"Error saving summaries: {e}")
+        logger.error(f"Error saving summaries: {e}")
 
 def summarize_content(content):
     """
     Takes a string content and returns a summary using Ollama.
-    The model is unaware that the content is an email.
     """
     if not content or len(content.strip()) == 0:
         return "No content to summarize."
 
-    # Get current time in GMT+5:30
     ist = timezone(timedelta(hours=5, minutes=30))
     now = datetime.now(ist).strftime("%H:%M:%S %d/%m/%y")
 
     url = f"{OLLAMA_BASE_URL}/api/generate"
-
     payload = {
         "model": MODEL,
         "prompt": f"Current Time: {now}\n\n{SYSTEM_PROMPT}\n\nContent to summarize:\n{content}\n\nSummary:",
@@ -75,8 +71,13 @@ def summarize_content(content):
         response.raise_for_status()
         result = response.json()
         return result.get("response", "Could not generate summary.").strip()
+    except requests.exceptions.ConnectionError:
+        return "AI Summarizer is offline. Please ensure Ollama is running."
+    except requests.exceptions.HTTPError as e:
+        return f"AI Summarizer error: {e.response.status_code}. Check if model {MODEL} is pulled."
     except Exception as e:
-        return f"Error connecting to Ollama: {str(e)}"
+        logger.error(f"Unexpected error during summarization: {e}")
+        return f"An unexpected error occurred: {str(e)}"
 
 def get_summary(uid, body):
     """
@@ -91,12 +92,15 @@ def get_summary(uid, body):
         return summaries[uid_str]
 
     summary = summarize_content(body)
-    summaries[uid_str] = summary
-    save_summaries(data)
+    
+    # Only cache successful summaries, not error messages
+    if "offline" not in summary.lower() and "error" not in summary.lower():
+        summaries[uid_str] = summary
+        save_summaries(data)
+        
     return summary
 
 if __name__ == "__main__":
-    # Quick test
     test_text = "The quick brown fox jumps over the lazy dog many times to demonstrate agility."
     print("Testing Summary:")
     print(summarize_content(test_text))
