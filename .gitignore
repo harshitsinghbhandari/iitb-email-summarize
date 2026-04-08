@@ -1,0 +1,4 @@
+.env
+env/
+summaries.json
+__pycache__

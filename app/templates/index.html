@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Mail Viewer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --surface-color: rgba(30, 41, 59, 0.7);
+            --surface-hover: rgba(30, 41, 59, 0.9);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #3b82f6;
+            --border: rgba(255, 255, 255, 0.08);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 3rem 1rem;
+        }
+
+        header { text-align: center; margin-bottom: 3rem; }
+
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, #60a5fa, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .container { width: 100%; max-width: 800px; display: flex; flex-direction: column; gap: 1rem; }
+
+        .email-card {
+            background: var(--surface-color);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            position: relative;
+            cursor: pointer;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: slideUp 0.5s forwards ease-out;
+        }
+
+        .email-card:hover { background: var(--surface-hover); transform: translateY(-3px); }
+
+        .email-header { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
+        .email-sender { font-weight: 600; color: var(--text-main); }
+        .email-date { font-size: 0.85rem; color: var(--text-muted); }
+        
+        .email-subject { font-weight: 500; font-size: 1.1rem; margin-bottom: 0.5rem; }
+        .email-snippet { color: var(--text-muted); font-size: 0.9rem; line-height: 1.4; }
+
+        /* Summary Overlay */
+        .summary-overlay {
+            display: none;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+            animation: fadeIn 0.4s ease-in-out;
+        }
+
+        .summary-text {
+            background: rgba(59, 130, 246, 0.1);
+            border-left: 3px solid var(--accent);
+            padding: 1rem;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            color: #d1d5db;
+            margin-bottom: 1rem;
+        }
+
+        .detail-btn {
+            display: inline-block;
+            background: var(--accent);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: opacity 0.2s;
+        }
+
+        .detail-btn:hover { opacity: 0.9; }
+
+        .loader {
+            width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 50%; border-top-color: var(--accent);
+            animation: spin 1s infinite linear;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Inbox Broadcast</h1>
+    </header>
+
+    <div class="container" id="email-container"></div>
+
+    <script>
+        const container = document.getElementById('email-container');
+
+        async function fetchEmails() {
+            try {
+                const res = await fetch('/api/emails');
+                const data = await res.json();
+                if (data.status === 'success') renderEmails(data.data);
+            } catch (e) { console.error(e); }
+        }
+
+        function renderEmails(emails) {
+            container.innerHTML = '';
+            emails.forEach((email, i) => {
+                const card = document.createElement('div');
+                card.className = 'email-card';
+                card.style.animationDelay = `${i * 0.05}s`;
+                
+                card.innerHTML = `
+                    <div class="email-header">
+                        <div class="email-sender">${email.sender}</div>
+                        <div class="email-date">${email.date}</div>
+                    </div>
+                    <div class="email-subject">${email.subject}</div>
+                    <div class="email-snippet">${email.snippet}</div>
+                    <div class="summary-overlay" id="summary-${email.uid}">
+                        <div class="summary-text" id="text-${email.uid}">
+                             <div class="loader"></div> Summarizing with AI...
+                        </div>
+                        <a href="/email/${email.uid}" class="detail-btn">View Full Email</a>
+                    </div>
+                `;
+                
+                card.onclick = (e) => {
+                    if (e.target.classList.contains('detail-btn')) return;
+                    toggleSummary(email.uid);
+                };
+                
+                container.appendChild(card);
+            });
+        }
+
+        async function toggleSummary(uid) {
+            const overlay = document.getElementById(`summary-${uid}`);
+            const textDiv = document.getElementById(`text-${uid}`);
+            
+            if (overlay.style.display === 'block') {
+                overlay.style.display = 'none';
+            } else {
+                overlay.style.display = 'block';
+                // Only fetch if it hasn't been fetched yet
+                if (textDiv.innerHTML.includes('loader')) {
+                    try {
+                        const res = await fetch(`/api/email/${uid}/summary`);
+                        const data = await res.json();
+                        textDiv.innerText = data.summary;
+                    } catch (e) {
+                        textDiv.innerText = "Error generating summary.";
+                    }
+                }
+            }
+        }
+
+        fetchEmails();
+    </script>
+</body>
+</html>
