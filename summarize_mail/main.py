@@ -1,27 +1,50 @@
 import requests
 import json
 import os
+import hashlib
 from .config import MODEL, OLLAMA_BASE_URL
 from .PROMPT import SYSTEM_PROMPT
 
 SUMMARIES_FILE = "summaries.json"
 
+def get_prompt_hash():
+    """Computes a hash of the current system prompt."""
+    return hashlib.sha256(SYSTEM_PROMPT.encode()).hexdigest()
+
 def load_summaries():
-    """Loads summaries from the JSON cache file."""
+    """
+    Loads summaries from the JSON cache file.
+    If the system prompt has changed, the cache is invalidated and reset.
+    """
     if not os.path.exists(SUMMARIES_FILE):
-        return {}
+        return {"prompt_hash": get_prompt_hash(), "summaries": {}}
+
     try:
         with open(SUMMARIES_FILE, "r") as f:
-            return json.load(f)
+            data = json.load(f)
+
+        # Ensure data is in the expected format
+        if not isinstance(data, dict) or "prompt_hash" not in data or "summaries" not in data:
+            return {"prompt_hash": get_prompt_hash(), "summaries": {}}
+
+        # Check if the system prompt has changed
+        current_hash = get_prompt_hash()
+        if data["prompt_hash"] != current_hash:
+            print("System prompt changed. Invalidating summary cache...")
+            return {"prompt_hash": current_hash, "summaries": {}}
+
+        return data
     except Exception as e:
         print(f"Error loading summaries: {e}")
-        return {}
+        return {"prompt_hash": get_prompt_hash(), "summaries": {}}
 
-def save_summaries(summaries):
-    """Saves summaries to the JSON cache file."""
+def save_summaries(data):
+    """Saves the cache data (including prompt hash) to the JSON file."""
     try:
+        # Always ensure the current prompt hash is saved
+        data["prompt_hash"] = get_prompt_hash()
         with open(SUMMARIES_FILE, "w") as f:
-            json.dump(summaries, f, indent=2)
+            json.dump(data, f, indent=2)
     except Exception as e:
         print(f"Error saving summaries: {e}")
 
@@ -54,7 +77,8 @@ def get_summary(uid, body):
     Returns the summary for a given email UID.
     Uses cache if available, otherwise generates a new summary and caches it.
     """
-    summaries = load_summaries()
+    data = load_summaries()
+    summaries = data["summaries"]
     uid_str = str(uid)
 
     if uid_str in summaries:
@@ -62,7 +86,7 @@ def get_summary(uid, body):
 
     summary = summarize_content(body)
     summaries[uid_str] = summary
-    save_summaries(summaries)
+    save_summaries(data)
     return summary
 
 if __name__ == "__main__":
