@@ -3,7 +3,7 @@ from imap_tools import MailBox
 from .config import IMAP_SERVER, IMAP_PORT, IMAP_USERNAME, IMAP_PASSWORD, MAILBOX
 
 def get_last_10_emails():
-    """Reads emails from the configured IMAP mailbox, filtering out ignored addresses, until 10 are found."""
+    """Reads emails from the configured IMAP mailbox, filtering out ignored addresses, until the configured limit is reached."""
     try:
         # Create a context that supports older TLS versions if needed
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -13,12 +13,12 @@ def get_last_10_emails():
         context.set_ciphers('DEFAULT@SECLEVEL=1')
 
         # Connect to the IMAP server and login with the SSL context
-        from .config import IGNORE_EMAILS
+        from .config import IGNORE_EMAILS, EMAILS_TO_FETCH
         with MailBox(IMAP_SERVER, port=IMAP_PORT, ssl_context=context).login(IMAP_USERNAME, IMAP_PASSWORD, initial_folder=MAILBOX) as mailbox:
             emails = []
             # Fetch emails in reverse order (newest first).
             # Since fetch() returns an iterator, we can efficiently loop through all emails
-            # and stop as soon as we collect 10 non-ignored ones.
+            # and stop as soon as we collect the configured number of non-ignored ones.
             for msg in mailbox.fetch(reverse=True):
                 if msg.from_ not in IGNORE_EMAILS:
                     emails.append({
@@ -28,7 +28,7 @@ def get_last_10_emails():
                         "date": msg.date.strftime("%b %d, %Y %I:%M %p"),
                         "body": msg.text or msg.html or ""
                     })
-                    if len(emails) == 10:
+                    if len(emails) == EMAILS_TO_FETCH:
                         break
 
             return emails

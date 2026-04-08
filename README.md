@@ -1,0 +1,71 @@
+# 📧 Inbox Broadcast
+
+A sleek, AI-powered mail viewer designed for **IIT Bombay students**. It fetches your latest campus emails, provides instant AI summaries, and manages a prioritized processing queue to help you stay on top of academic and administrative updates.
+
+## Features
+
+- **Live Mail View**: A modern, glassmorphism-inspired web interface to browse your inbox.
+- **AI Summarization**: Integrated with Ollama to provide concise summaries of long emails, filtering out the noise.
+- **Smart Filtering**: Ability to ignore specific email addresses (e.g., redundant newsletters) to keep your view clean.
+- **Summary Caching**: JSON-based caching system to ensure instant loads for previously summarized emails.
+- **Prioritized Processing**: A batch summarization endpoint that processes emails starting from the oldest (smallest UID) first.
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- **Python 3.10+**
+- **Ollama**: Install Ollama and pull the required model:
+  ```bash
+  ollama pull qwen2.5:0.5b
+  ```
+
+### Installation
+
+1. **Clone the repository**
+2. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. **Configure Environment**:
+   Create a `.env` file in the `mail_fetch/` directory based on `.env.example`. Use the following IITB-specific settings:
+   ```env
+   IMAP_SERVER=imap.iitb.ac.in
+   IMAP_PORT=993
+   IMAP_USERNAME=ldapid@iitb.ac.in
+   IMAP_PASSWORD=your_sso_token
+   MAILBOX=INBOX
+   IGNORE_EMAILS=newsletter@spam.com,alerts@system.com
+   ```
+
+   > **How to get your SSO token:**
+   > Go to [sso.iitb.ac.in](https://sso.iitb.ac.in) $\rightarrow$ **Manage account** $\rightarrow$ **Access tokens** $\rightarrow$ **Emails**.
+
+### Running the App
+
+Start the server using `uvicorn`:
+```bash
+uvicorn app.main:app --reload
+```
+Open your browser and visit: `http://127.0.0.1:8000`
+
+## 🛠️ API Endpoints
+
+| Endpoint | Method | Description |
+| :--- | :--- | :--- |
+| `/` | GET | Serves the main Inbox UI |
+| `/api/emails` | GET | Fetches the last 10 non-ignored emails |
+| `/api/email/{uid}` | GET | Fetches a specific email and its cached/new summary |
+| `/api/email/{uid}/summary` | GET | Retrieves only the AI summary for a specific email |
+| `/api/summarize-pending` | GET | Triggers batch summarization for all unsummarized emails in ascending order |
+
+## 📁 Project Structure
+
+- `app/`: FastAPI application and Jinja2 templates.
+- `mail_fetch/`: IMAP integration and configuration.
+- `summarize_mail/`: LLM prompt and caching logic.
+- `summaries.json`: Local cache storing `{uid: summary}`.
+
+## 🛡️ Security Note
+
+This application uses the IMAP protocol to access your mail. Always use an **SSO Access Token** as described in the configuration section rather than your main LDAP password to ensure the security of your account.

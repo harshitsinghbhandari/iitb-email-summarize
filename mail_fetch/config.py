@@ -10,3 +10,4 @@ IMAP_USERNAME = os.getenv("IMAP_USERNAME", "your_email@gmail.com")
 IMAP_PASSWORD = os.getenv("IMAP_PASSWORD", "your_app_password")
 MAILBOX = os.getenv("MAILBOX", "INBOX")
 IGNORE_EMAILS = os.getenv("IGNORE_EMAILS", "").split(",") if os.getenv("IGNORE_EMAILS") else []
+EMAILS_TO_FETCH = 10
