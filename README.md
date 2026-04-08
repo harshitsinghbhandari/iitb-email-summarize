@@ -16,10 +16,17 @@ A sleek, AI-powered mail viewer designed for **IIT Bombay students**. It fetches
 ### Prerequisites
 
 - **Python 3.10+**
-- **Ollama**: Install Ollama and pull the required model:
-  ```bash
-  ollama pull qwen2.5:0.5b
-  ```
+- **Ollama**: The AI engine must be running in the background for summarization to work.
+  - **Installation**: 
+    - Visit [ollama.com](https://ollama.com/) for official installation instructions.
+    - **Linux/Mac**: Run `curl -fsSL https://ollama.com/install.sh | sh` in your terminal.
+    - **Windows**: Download and run the installer from the official website.
+  - **Running Ollama**: 
+    - You must either open the Ollama application from your apps menu **OR** run `ollama serve` in a separate terminal window.
+  - **Pull the Model**:
+    ```bash
+    ollama pull qwen2.5:0.8b
+    ```
 
 ### Installation
 
