@@ -5,9 +5,9 @@ A sleek, AI-powered mail viewer designed for **IIT Bombay students**. It fetches
 ## ✨ Features
 
 - **Live Mail View**: A modern, glassmorphism-inspired web interface to browse your inbox.
-- **AI Summarization**: Integrated with Ollama to provide concise summaries of long emails, filtering out the noise.
+- **Rich AI Summarization**: Integrated with Ollama to provide concise, Markdown-formatted summaries including an overview, quick details, and prioritized key items.
 - **Smart Filtering**: Ability to ignore specific email addresses (e.g., redundant newsletters) to keep your view clean.
-- **Summary Caching**: JSON-based caching system to ensure instant loads for previously summarized emails.
+- **Summary Caching**: JSON-based caching system with prompt-hash validation to ensure instant loads and automatic updates when the AI prompt changes.
 - **Prioritized Processing**: A batch summarization endpoint that processes emails starting from the oldest (smallest UID) first.
 - **Discord Integration**: Send AI-generated summaries directly to your Discord channel with a single click.
 
