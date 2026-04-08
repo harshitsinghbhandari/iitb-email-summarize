@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live Mail Viewer</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -80,7 +81,13 @@
             font-size: 0.95rem;
             color: #d1d5db;
             margin-bottom: 1rem;
+            line-height: 1.5;
         }
+
+        .summary-text p { margin-bottom: 0.8rem; }
+        .summary-text ul { margin-bottom: 0.8rem; padding-left: 1.2rem; }
+        .summary-text li { margin-bottom: 0.3rem; }
+        .summary-text strong { color: var(--text-main); }
 
         .detail-btn {
             display: inline-block;
@@ -158,20 +165,23 @@
 
         async function toggleSummary(uid) {
             const overlay = document.getElementById(`summary-${uid}`);
-            const textDiv = document.getElementById(`text-${uid}`);
+            const textEl = document.getElementById(`text-${uid}`);
             
             if (overlay.style.display === 'block') {
                 overlay.style.display = 'none';
             } else {
                 overlay.style.display = 'block';
-                // Only fetch if it hasn't been fetched yet
-                if (textDiv.innerHTML.includes('loader')) {
+                if (textEl.innerHTML.includes('loader')) {
                     try {
                         const res = await fetch(`/api/email/${uid}/summary`);
                         const data = await res.json();
-                        textDiv.innerText = data.summary;
+                        if (data.status === 'success') {
+                            textEl.innerHTML = marked.parse(data.summary);
+                        } else {
+                            textEl.innerText = "Error fetching summary.";
+                        }
                     } catch (e) {
-                        textDiv.innerText = "Error generating summary.";
+                        textEl.innerText = "Failed to load summary.";
                     }
                 }
             }
