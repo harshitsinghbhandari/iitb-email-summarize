@@ -50,6 +50,26 @@
 
         .back-btn:hover { transform: translateX(-5px); }
 
+        .discord-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #5865F2;
+            color: white;
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: background 0.2s, transform 0.1s;
+            margin-top: 1rem;
+        }
+        .discord-btn:hover { background: #4752C4; }
+        .discord-btn:active { transform: scale(0.98); }
+        .discord-btn:disabled { background: #4b4b4b; cursor: not-allowed; opacity: 0.7; }
+
         .email-meta {
             margin-bottom: 2rem;
             border-bottom: 1px solid var(--border);
@@ -142,14 +162,44 @@
                         <span>${email.date}</span>
                     </div>
                 </div>
-                
+
                 <div class="summary-section">
-                    <span class="summary-label">AI Summary</span>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <span class="summary-label">AI Summary</span>
+                        <button class="discord-btn" onclick="sendToDiscord('${email.uid}')">Send to Discord</button>
+                    </div>
                     <div class="summary-text">${email.summary}</div>
                 </div>
 
                 <div class="email-content">${email.body}</div>
             `;
+        }
+
+        async function sendToDiscord(uid) {
+            const btn = event.target;
+            const originalText = btn.innerText;
+            btn.disabled = true;
+            btn.innerText = "Sending...";
+
+            try {
+                const response = await fetch(`/api/email/${uid}/discord`, { method: 'POST' });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    btn.innerText = "Sent! ✅";
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.innerText = originalText;
+                    }, 3000);
+                } else {
+                    alert("Error: " + data.message);
+                    btn.disabled = false;
+                    btn.innerText = originalText;
+                }
+            } catch (e) {
+                alert("Failed to send to Discord.");
+                btn.disabled = false;
+                btn.innerText = originalText;
+            }
         }
 
         fetchEmailDetail();

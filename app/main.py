@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from mail_fetch.main import get_last_10_emails, get_email_by_uid, get_all_uids
 from summarize_mail.main import get_summary, load_summaries
+from notify.main import send_to_discord
 import os
 
 app = FastAPI(title="Live Mail Viewer")
@@ -55,6 +56,20 @@ async def api_get_single_email(uid: str):
         email["summary"] = get_summary(uid, email['body'])
         return {"status": "success", "data": email}
     return {"status": "error", "message": "Email not found"}
+
+@app.post("/api/email/{uid}/discord")
+async def api_send_to_discord(uid: str):
+    """Send an email summary to Discord."""
+    email = get_email_by_uid(uid)
+    if not email:
+        return {"status": "error", "message": "Email not found"}
+
+    summary = get_summary(uid, email['body'])
+    success, message = send_to_discord(email, summary)
+
+    if success:
+        return {"status": "success", "message": message}
+    return {"status": "error", "message": message}
 
 @app.get("/api/summarize-pending")
 async def api_summarize_pending():
