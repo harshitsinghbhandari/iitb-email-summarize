@@ -2,6 +2,7 @@ import requests
 import json
 import os
 import hashlib
+from datetime import datetime, timedelta, timezone
 from .config import MODEL, OLLAMA_BASE_URL
 from .PROMPT import SYSTEM_PROMPT
 
@@ -56,16 +57,21 @@ def summarize_content(content):
     if not content or len(content.strip()) == 0:
         return "No content to summarize."
 
+    # Get current time in GMT+5:30
+    ist = timezone(timedelta(hours=5, minutes=30))
+    now = datetime.now(ist).strftime("%H:%M:%S %d/%m/%y")
+
     url = f"{OLLAMA_BASE_URL}/api/generate"
 
     payload = {
         "model": MODEL,
-        "prompt": f"{SYSTEM_PROMPT}\n\nContent to summarize:\n{content}\n\nSummary:",
-        "stream": False
+        "prompt": f"Current Time: {now}\n\n{SYSTEM_PROMPT}\n\nContent to summarize:\n{content}\n\nSummary:",
+        "stream": False,
+        "think": False
     }
 
     try:
-        response = requests.post(url, json=payload, timeout=30)
+        response = requests.post(url, json=payload, timeout=120)
         response.raise_for_status()
         result = response.json()
         return result.get("response", "Could not generate summary.").strip()
