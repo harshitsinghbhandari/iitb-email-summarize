@@ -3,12 +3,14 @@ import json
 import os
 import hashlib
 import logging
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from .config import MODEL, OLLAMA_BASE_URL
 from .PROMPT import SYSTEM_PROMPT
 
 logger = logging.getLogger("summarize_mail")
-SUMMARIES_FILE = "summaries.json"
+ROOT_DIR = Path(__file__).resolve().parent.parent
+SUMMARIES_FILE = Path(os.getenv("SUMMARIES_FILE", ROOT_DIR / "summaries.json"))
 
 def get_prompt_hash():
     """Computes a hash of the current system prompt."""
@@ -19,11 +21,11 @@ def load_summaries():
     Loads summaries from the JSON cache file.
     If the system prompt has changed, the cache is invalidated and reset.
     """
-    if not os.path.exists(SUMMARIES_FILE):
+    if not SUMMARIES_FILE.exists():
         return {"prompt_hash": get_prompt_hash(), "summaries": {}}
 
     try:
-        with open(SUMMARIES_FILE, "r") as f:
+        with SUMMARIES_FILE.open("r", encoding="utf-8") as f:
             data = json.load(f)
 
         if not isinstance(data, dict) or "prompt_hash" not in data or "summaries" not in data:
@@ -43,7 +45,8 @@ def save_summaries(data):
     """Saves the cache data (including prompt hash) to the JSON file."""
     try:
         data["prompt_hash"] = get_prompt_hash()
-        with open(SUMMARIES_FILE, "w") as f:
+        SUMMARIES_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with SUMMARIES_FILE.open("w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
     except Exception as e:
         logger.error(f"Error saving summaries: {e}")

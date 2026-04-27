@@ -44,6 +44,7 @@ A sleek, AI-powered mail viewer designed for **IIT Bombay students**. It fetches
    IMAP_PASSWORD=your_sso_token
    MAILBOX=INBOX
    IGNORE_EMAILS=newsletter@spam.com,alerts@system.com
+   IMAP_ALLOW_INSECURE_SSL=false
    ```
 
    And create a `.env` file in the `notify/` directory for Discord notifications:
@@ -61,6 +62,41 @@ Start the server using `uvicorn`:
 uvicorn app.main:app --reload
 ```
 Open your browser and visit: `http://127.0.0.1:8000`
+
+### Verify Mail Credentials
+
+To test only the IMAP credentials and mailbox access:
+
+```bash
+python scripts/check_mail_fetch.py
+```
+
+To test the experimental deadline function-calling module with Ollama:
+
+```bash
+ollama pull functiongemma:270m
+python scripts/check_deadline_function_calling.py
+```
+
+To run the broader live deadline extraction evaluation:
+
+```bash
+python scripts/evaluate_deadline_function_calling.py
+```
+
+To run deadline extraction once against recent email and post new deadlines to Discord:
+
+```bash
+DEADLINE_FUNCTION_MODEL=minimax-m2.5:cloud python scripts/run_deadline_daemon.py --once
+```
+
+To keep it running in the background:
+
+```bash
+DEADLINE_FUNCTION_MODEL=minimax-m2.5:cloud python scripts/run_deadline_daemon.py --interval 300
+```
+
+Extracted deadlines are saved to `deadlines.json`. Use `--no-discord` to update the local deadline store without posting to Discord.
 
 ## 🛠️ API Endpoints
 
@@ -81,6 +117,12 @@ Open your browser and visit: `http://127.0.0.1:8000`
 - `notify/`: Discord notification system.
 - `summaries.json`: Local cache storing `{uid: summary}`.
 
+## ⚙️ Configuration Notes
+
+- `mail_fetch/.env` and `notify/.env` are loaded explicitly, so the app works the same way whether you run it from the repo root or another working directory.
+- IMAP TLS certificate verification is enabled by default. If your mail server only works with legacy or unverifiable TLS, set `IMAP_ALLOW_INSECURE_SSL=true` in `mail_fetch/.env`.
+- Summary cache location defaults to `summaries.json` in the repo root. Set `SUMMARIES_FILE=/absolute/path/to/summaries.json` to move it.
+
 ## 🛡️ Security Note
 
-This application uses the IMAP protocol to access your mail. Always use an **SSO Access Token** as described in the configuration section rather than your main LDAP password to ensure the security of your account.
+This application uses the IMAP protocol to access your mail. Always use an **SSO Access Token** as described in the configuration section rather than your main LDAP password to ensure the security of your account. Keep `IMAP_ALLOW_INSECURE_SSL=false` unless you specifically need compatibility with an older mail server.

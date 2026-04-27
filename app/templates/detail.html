@@ -167,9 +167,52 @@
     <div id="toast-container"></div>
 
     <script>
-        const uid = "{{ uid }}";
+        const uid = {{ uid | tojson }};
         const container = document.getElementById('detail-container');
         const toastContainer = document.getElementById('toast-container');
+
+        const ALLOWED_MARKDOWN_TAGS = new Set(['P', 'BR', 'STRONG', 'EM', 'UL', 'OL', 'LI', 'CODE', 'PRE', 'BLOCKQUOTE', 'A']);
+
+        function escapeHTML(value) {
+            return String(value ?? '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[char]));
+        }
+
+        function renderMarkdownSafe(markdown) {
+            const template = document.createElement('template');
+            template.innerHTML = marked.parse(String(markdown ?? ''));
+
+            function sanitize(node) {
+                [...node.children].forEach(child => {
+                    sanitize(child);
+
+                    if (!ALLOWED_MARKDOWN_TAGS.has(child.tagName)) {
+                        child.replaceWith(document.createTextNode(child.textContent));
+                        return;
+                    }
+
+                    if (child.tagName === 'A') {
+                        const href = child.getAttribute('href') || '';
+                        [...child.attributes].forEach(attr => child.removeAttribute(attr.name));
+                        if (/^https?:\/\//i.test(href)) {
+                            child.setAttribute('href', href);
+                            child.setAttribute('target', '_blank');
+                            child.setAttribute('rel', 'noopener noreferrer');
+                        }
+                    } else {
+                        [...child.attributes].forEach(attr => child.removeAttribute(attr.name));
+                    }
+                });
+            }
+
+            sanitize(template.content);
+            return template.innerHTML;
+        }
 
         function showToast(message, type = 'info') {
             const toast = document.createElement('div');
@@ -194,7 +237,7 @@
                 } else {
                     container.innerHTML = `<div class="detail-card" style="text-align:center">
                         <h1 style="color:var(--error)">Error</h1>
-                        <p>${data.message}</p>
+                        <p>${escapeHTML(data.message)}</p>
                         <a href="/" class="back-btn" style="margin-top:2rem">← Back to Inbox</a>
                     </div>`;
                 }
@@ -212,38 +255,42 @@
                 <div class="detail-card">
                     <a href="/" class="back-btn">← Back to Inbox</a>
                     <div class="email-meta">
-                        <h1>${email.subject}</h1>
+                        <h1>${escapeHTML(email.subject)}</h1>
                         <div class="meta-row">
                             <span class="label">From:</span>
-                            <span>${email.sender}</span>
+                            <span>${escapeHTML(email.sender)}</span>
                         </div>
                         <div class="meta-row">
                             <span class="label">Date:</span>
-                            <span>${email.date}</span>
+                            <span>${escapeHTML(email.date)}</span>
                         </div>
                     </div>
 
                     <div class="summary-section">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                             <span class="summary-label">AI Summary</span>
-                            <button class="discord-btn" onclick="sendToDiscord('${email.uid}')">Send to Discord</button>
+                            <button class="discord-btn" type="button" data-uid="${escapeHTML(email.uid)}">Send to Discord</button>
                         </div>
-                        <div class="summary-text">${marked.parse(email.summary || 'No summary available.')}</div>
+                        <div class="summary-text">${renderMarkdownSafe(email.summary || 'No summary available.')}</div>
                     </div>
 
-                    <div class="email-content">${email.body}</div>
+                    <div class="email-content"></div>
                 </div>
             `;
+
+            container.querySelector('.email-content').textContent = email.body || 'No content.';
+            container.querySelector('.discord-btn').addEventListener('click', event => {
+                sendToDiscord(event.currentTarget.dataset.uid, event.currentTarget);
+            });
         }
 
-        async function sendToDiscord(uid) {
-            const btn = event.target;
+        async function sendToDiscord(uid, btn) {
             const originalText = btn.innerText;
             btn.disabled = true;
             btn.innerText = "Sending...";
 
             try {
-                const response = await fetch(`/api/email/${uid}/discord`, { method: 'POST' });
+                const response = await fetch(`/api/email/${encodeURIComponent(uid)}/discord`, { method: 'POST' });
                 const data = await response.json();
                 if (data.status === 'success') {
                     btn.innerText = "Sent! ✅";

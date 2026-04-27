@@ -4,3 +4,4 @@ jinja2
 imap-tools
 requests
 python-dotenv
+pytest

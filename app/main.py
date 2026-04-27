@@ -15,7 +15,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("app")
 
-app = FastAPI(title="Live Mail Viewer")
+app = FastAPI(title="Inbox Broadcast")
 
 # Setup Jinja2 templates directory
 templates_dir = os.path.join(os.path.dirname(__file__), "templates")
@@ -110,7 +110,7 @@ async def api_summarize_pending():
     """Prioritized batch summarization of pending emails."""
     try:
         all_uids = get_all_uids()
-        summaries = load_summaries()
+        summaries = load_summaries()["summaries"]
 
         pending_uids = [uid for uid in all_uids if str(uid) not in summaries]
         pending_uids.sort(key=lambda x: int(x) if str(x).isdigit() else x)

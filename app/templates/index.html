@@ -164,6 +164,49 @@
         const container = document.getElementById('email-container');
         const toastContainer = document.getElementById('toast-container');
 
+        const ALLOWED_MARKDOWN_TAGS = new Set(['P', 'BR', 'STRONG', 'EM', 'UL', 'OL', 'LI', 'CODE', 'PRE', 'BLOCKQUOTE', 'A']);
+
+        function escapeHTML(value) {
+            return String(value ?? '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[char]));
+        }
+
+        function renderMarkdownSafe(markdown) {
+            const template = document.createElement('template');
+            template.innerHTML = marked.parse(String(markdown ?? ''));
+
+            function sanitize(node) {
+                [...node.children].forEach(child => {
+                    sanitize(child);
+
+                    if (!ALLOWED_MARKDOWN_TAGS.has(child.tagName)) {
+                        child.replaceWith(document.createTextNode(child.textContent));
+                        return;
+                    }
+
+                    if (child.tagName === 'A') {
+                        const href = child.getAttribute('href') || '';
+                        [...child.attributes].forEach(attr => child.removeAttribute(attr.name));
+                        if (/^https?:\/\//i.test(href)) {
+                            child.setAttribute('href', href);
+                            child.setAttribute('target', '_blank');
+                            child.setAttribute('rel', 'noopener noreferrer');
+                        }
+                    } else {
+                        [...child.attributes].forEach(attr => child.removeAttribute(attr.name));
+                    }
+                });
+            }
+
+            sanitize(template.content);
+            return template.innerHTML;
+        }
+
         function showToast(message, type = 'info') {
             const toast = document.createElement('div');
             toast.className = `toast ${type === 'error' ? 'error' : ''}`;
@@ -187,7 +230,7 @@
                     container.innerHTML = `
                         <div class="error-state">
                             <h2>Connection Error</h2>
-                            <p>${data.message}</p>
+                            <p>${escapeHTML(data.message)}</p>
                         </div>
                     `;
                 }
@@ -203,22 +246,23 @@
                 return;
             }
             emails.forEach((email, i) => {
+                const uidKey = encodeURIComponent(email.uid);
                 const card = document.createElement('div');
                 card.className = 'email-card';
                 card.style.animationDelay = `${i * 0.05}s`;
                 
                 card.innerHTML = `
                     <div class="email-header">
-                        <div class="email-sender">${email.sender}</div>
-                        <div class="email-date">${email.date}</div>
+                        <div class="email-sender">${escapeHTML(email.sender)}</div>
+                        <div class="email-date">${escapeHTML(email.date)}</div>
                     </div>
-                    <div class="email-subject">${email.subject}</div>
-                    <div class="email-snippet">${email.snippet}</div>
-                    <div class="summary-overlay" id="summary-${email.uid}">
-                        <div class="summary-text" id="text-${email.uid}">
+                    <div class="email-subject">${escapeHTML(email.subject)}</div>
+                    <div class="email-snippet">${escapeHTML(email.snippet)}</div>
+                    <div class="summary-overlay" id="summary-${uidKey}">
+                        <div class="summary-text" id="text-${uidKey}" data-loaded="false">
                              <div class="loader"></div> Summarizing with AI...
                         </div>
-                        <a href="/email/${email.uid}" class="detail-btn">View Full Email</a>
+                        <a href="/email/${uidKey}" class="detail-btn">View Full Email</a>
                     </div>
                 `;
                 
@@ -232,25 +276,29 @@
         }
 
         async function toggleSummary(uid) {
-            const overlay = document.getElementById(`summary-${uid}`);
-            const textEl = document.getElementById(`text-${uid}`);
+            const uidKey = encodeURIComponent(uid);
+            const overlay = document.getElementById(`summary-${uidKey}`);
+            const textEl = document.getElementById(`text-${uidKey}`);
             
             if (overlay.style.display === 'block') {
                 overlay.style.display = 'none';
             } else {
                 overlay.style.display = 'block';
-                if (textEl.innerHTML.includes('loader')) {
+                if (textEl.dataset.loaded !== 'true') {
                     try {
-                        const res = await fetch(`/api/email/${uid}/summary`);
+                        const res = await fetch(`/api/email/${encodeURIComponent(uid)}/summary`);
                         const data = await res.json();
                         if (data.status === 'success') {
-                            textEl.innerHTML = marked.parse(data.summary);
+                            textEl.innerHTML = renderMarkdownSafe(data.summary);
+                            textEl.dataset.loaded = 'true';
                         } else {
                             textEl.innerText = data.message || "Error fetching summary.";
+                            textEl.dataset.loaded = 'true';
                             showToast(data.message || "Summary failed", "error");
                         }
                     } catch (e) {
                         textEl.innerText = "Failed to load summary.";
+                        textEl.dataset.loaded = 'true';
                         showToast("Server error while summarizing", "error");
                     }
                 }

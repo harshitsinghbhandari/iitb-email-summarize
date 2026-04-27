@@ -1,16 +1,27 @@
 import ssl
 import logging
 from imap_tools import MailBox
-from .config import IMAP_SERVER, IMAP_PORT, IMAP_USERNAME, IMAP_PASSWORD, MAILBOX, IGNORE_EMAILS, EMAILS_TO_FETCH
+from .config import (
+    IMAP_SERVER,
+    IMAP_PORT,
+    IMAP_USERNAME,
+    IMAP_PASSWORD,
+    MAILBOX,
+    IGNORE_EMAILS,
+    EMAILS_TO_FETCH,
+    IMAP_ALLOW_INSECURE_SSL,
+)
 
 logger = logging.getLogger("mail_fetch")
 
 def _get_imap_context():
-    """Helper to create a consistent SSL context for academic networks."""
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    context.check_hostname = False
-    context.verify_mode = ssl.CERT_NONE
-    context.set_ciphers('DEFAULT@SECLEVEL=1')
+    """Create an SSL context for IMAP connections."""
+    context = ssl.create_default_context()
+    if IMAP_ALLOW_INSECURE_SSL:
+        logger.warning("IMAP_ALLOW_INSECURE_SSL is enabled; certificate verification is disabled.")
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        context.set_ciphers('DEFAULT@SECLEVEL=1')
     return context
 
 def _handle_imap_error(e, context_msg=""):
@@ -33,7 +44,7 @@ def get_last_10_emails():
         with MailBox(IMAP_SERVER, port=IMAP_PORT, ssl_context=context).login(IMAP_USERNAME, IMAP_PASSWORD, initial_folder=MAILBOX) as mailbox:
             emails = []
             for msg in mailbox.fetch(reverse=True):
-                if msg.from_ not in IGNORE_EMAILS:
+                if msg.from_.lower() not in IGNORE_EMAILS:
                     emails.append({
                         "uid": msg.uid,
                         "subject": msg.subject or "(No Subject)",
@@ -68,7 +79,7 @@ def get_email_by_uid(uid):
                     "subject": msg.subject or "(No Subject)",
                     "sender": msg.from_,
                     "date": msg.date.strftime("%b %d, %Y %I:%M %p"),
-                    "body": msg.html or msg.text or "No content."
+                    "body": msg.text or "No content."
                 }
         return None
     except Exception as e:
