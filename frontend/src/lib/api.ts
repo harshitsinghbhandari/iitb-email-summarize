@@ -7,7 +7,22 @@ export interface EmailListItem {
   sender: string;
   subject: string;
   date: string;
+  date_display?: string;
   snippet: string;
+  mailbox?: string;
+  body_source?: string;
+  attachment_count?: number;
+  attachments?: Array<{ filename?: string; content_type?: string; size?: number }>;
+  flags?: string[];
+  is_read?: boolean;
+  is_unread?: boolean;
+  is_flagged?: boolean;
+  has_html?: boolean;
+  contains_secret?: boolean;
+  secret_count?: number;
+  secret_types?: string[];
+  secret_findings?: SecretFinding[];
+  search_text?: string;
 }
 
 export interface EmailDetailData {
@@ -15,11 +30,30 @@ export interface EmailDetailData {
   sender: string;
   subject: string;
   date: string;
+  date_display?: string;
   body: string;
+  body_source?: string;
   summary?: string;
   html_body?: string;
-  attachments?: Array<{ filename: string; content_type: string; size: number }>;
+  has_html?: boolean;
+  mailbox?: string;
+  attachments?: Array<{ filename?: string; content_type?: string; size?: number }>;
+  attachment_count?: number;
   flags?: string[];
+  is_read?: boolean;
+  is_unread?: boolean;
+  is_flagged?: boolean;
+  contains_secret?: boolean;
+  secret_count?: number;
+  secret_types?: string[];
+  secret_findings?: SecretFinding[];
+  search_text?: string;
+}
+
+export interface SecretFinding {
+  type?: string;
+  label?: string;
+  evidence?: string;
 }
 
 export interface OfflineEnvelope<T> {

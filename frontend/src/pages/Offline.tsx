@@ -1,11 +1,55 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { Nav } from "../components/Nav";
 import { api, EmailDetailData, EmailListItem } from "../lib/api";
+
+type StatusFilter = "all" | "unread" | "read" | "attachments" | "flagged" | "secrets";
+type BodyView = "html" | "text";
 
 interface FixtureState {
   emails: EmailListItem[];
   manifest: { count?: number; generated_at?: string };
+}
+
+const statusLabels: Array<{ value: StatusFilter; label: string }> = [
+  { value: "all", label: "All mail" },
+  { value: "unread", label: "Unread" },
+  { value: "read", label: "Read" },
+  { value: "attachments", label: "Attachments" },
+  { value: "flagged", label: "Flagged" },
+  { value: "secrets", label: "Possible secrets" },
+];
+
+function isRead(email: EmailListItem | EmailDetailData) {
+  if (typeof email.is_read === "boolean") return email.is_read;
+  return (email.flags ?? []).some((flag) => flag.toLowerCase().replace("\\", "") === "seen");
+}
+
+function isFlagged(email: EmailListItem | EmailDetailData) {
+  if (typeof email.is_flagged === "boolean") return email.is_flagged;
+  return (email.flags ?? []).some((flag) => flag.toLowerCase().replace("\\", "") === "flagged");
+}
+
+function hasAttachments(email: EmailListItem | EmailDetailData) {
+  return Number(email.attachment_count ?? 0) > 0 || Number(email.attachments?.length ?? 0) > 0;
+}
+
+function containsSecret(email: EmailListItem | EmailDetailData) {
+  return Boolean(email.contains_secret || Number(email.secret_count ?? 0) > 0);
+}
+
+function displayDate(email: EmailListItem | EmailDetailData) {
+  return email.date_display || email.date || "";
+}
+
+function senderName(sender: string) {
+  return sender.split("<")[0].trim() || sender || "Unknown sender";
+}
+
+function initials(sender: string) {
+  const clean = senderName(sender);
+  const parts = clean.split(/\s+/).filter(Boolean);
+  const letters = parts.length > 1 ? `${parts[0][0]}${parts[1][0]}` : clean.slice(0, 2);
+  return letters.toUpperCase();
 }
 
 export default function Offline() {
@@ -14,6 +58,10 @@ export default function Offline() {
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const [detail, setDetail] = useState<EmailDetailData | null>(null);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [mailboxFilter, setMailboxFilter] = useState("all");
+  const [sourceFilter, setSourceFilter] = useState("all");
+  const [bodyView, setBodyView] = useState<BodyView>("html");
 
   useEffect(() => {
     let cancelled = false;
@@ -45,6 +93,7 @@ export default function Offline() {
         if (cancelled) return;
         if (data.status === "success" && data.data) {
           setDetail(data.data);
+          setBodyView(data.data.has_html && data.data.html_body ? "html" : "text");
         } else {
           setDetail(null);
         }
@@ -57,131 +106,303 @@ export default function Offline() {
     };
   }, [selectedUid]);
 
+  const emails = useMemo(() => fixture?.emails ?? [], [fixture]);
+
+  const counts = useMemo(
+    () => ({
+      all: emails.length,
+      unread: emails.filter((email) => !isRead(email)).length,
+      read: emails.filter(isRead).length,
+      attachments: emails.filter(hasAttachments).length,
+      flagged: emails.filter(isFlagged).length,
+      secrets: emails.filter(containsSecret).length,
+    }),
+    [emails],
+  );
+
+  const mailboxes = useMemo(
+    () => [...new Set(emails.map((email) => email.mailbox).filter(Boolean))].sort(),
+    [emails],
+  );
+
+  const bodySources = useMemo(
+    () => [...new Set(emails.map((email) => email.body_source).filter(Boolean))].sort(),
+    [emails],
+  );
+
   const filtered = useMemo(() => {
-    if (!fixture) return [];
     const q = search.trim().toLowerCase();
-    if (!q) return fixture.emails;
-    return fixture.emails.filter((email) =>
-      [email.subject, email.sender, email.snippet].some((value) =>
-        (value ?? "").toLowerCase().includes(q),
-      ),
+    return emails.filter((email) => {
+      if (statusFilter === "unread" && isRead(email)) return false;
+      if (statusFilter === "read" && !isRead(email)) return false;
+      if (statusFilter === "attachments" && !hasAttachments(email)) return false;
+      if (statusFilter === "flagged" && !isFlagged(email)) return false;
+      if (statusFilter === "secrets" && !containsSecret(email)) return false;
+      if (mailboxFilter !== "all" && email.mailbox !== mailboxFilter) return false;
+      if (sourceFilter !== "all" && email.body_source !== sourceFilter) return false;
+      if (!q) return true;
+      const haystack = email.search_text || [email.subject, email.sender, email.snippet].join(" ");
+      return haystack.toLowerCase().includes(q);
+    });
+  }, [emails, mailboxFilter, search, sourceFilter, statusFilter]);
+
+  function clearFilters() {
+    setSearch("");
+    setStatusFilter("all");
+    setMailboxFilter("all");
+    setSourceFilter("all");
+  }
+
+  if (error) {
+    return (
+      <div className="mail-app-shell">
+        <div className="mail-empty-state">
+          <h1>Offline fixture unavailable</h1>
+          <p>{error.message}</p>
+          {error.command && <code>{error.command}</code>}
+        </div>
+      </div>
     );
-  }, [fixture, search]);
+  }
 
   return (
-    <div className="page">
-      <header className="page-header">
-        <h1>Offline Fixture Viewer</h1>
-        {fixture && (
-          <p style={{ color: "var(--text-muted)" }}>
-            {fixture.manifest.count ?? fixture.emails.length} emails generated at{" "}
-            {fixture.manifest.generated_at ?? "unknown time"}
-          </p>
-        )}
-      </header>
-      <Nav />
-
-      {error && (
-        <div className="container">
-          <div className="error-state">
-            <h2>Fixture not available</h2>
-            <p>{error.message}</p>
-            {error.command && (
-              <p style={{ marginTop: "1rem", color: "var(--text-muted)" }}>
-                Run: <code>{error.command}</code>
-              </p>
-            )}
+    <div className="mail-app-shell">
+      <aside className="mail-sidebar" aria-label="Mailbox filters">
+        <div className="mail-brand">
+          <div>
+            <span className="mail-brand-kicker">Inbox Broadcast</span>
+            <h1>Offline Mail</h1>
           </div>
         </div>
-      )}
 
-      {!error && (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "320px 1fr",
-            gap: "1rem",
-            width: "100%",
-            maxWidth: "1100px",
-          }}
-        >
-          <aside style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            <input
-              type="search"
-              placeholder="Filter by subject, sender, snippet…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{
-                padding: "0.6rem 0.9rem",
-                borderRadius: "10px",
-                border: "1px solid var(--border)",
-                background: "var(--surface-color)",
-                color: "var(--text-main)",
-              }}
-            />
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-              {filtered.map((email) => {
-                const active = email.uid === selectedUid;
-                return (
-                  <button
-                    key={email.uid}
-                    type="button"
-                    onClick={() => {
-                      setDetail(null);
-                      setSelectedUid(email.uid);
-                    }}
-                    className="email-card"
-                    style={{
-                      animation: "none",
-                      opacity: 1,
-                      transform: "none",
-                      textAlign: "left",
-                      padding: "1rem",
-                      border: active ? "1px solid var(--accent)" : "1px solid var(--border)",
-                    }}
-                  >
-                    <div className="email-header">
-                      <div className="email-sender" style={{ fontSize: "0.9rem" }}>
-                        {email.sender}
-                      </div>
-                      <div className="email-date">{email.date}</div>
-                    </div>
-                    <div className="email-subject" style={{ fontSize: "0.95rem" }}>
-                      {email.subject}
-                    </div>
-                    <div className="email-snippet">{email.snippet}</div>
-                  </button>
-                );
-              })}
-              {filtered.length === 0 && fixture && (
-                <div className="error-state" style={{ padding: "1.5rem" }}>
-                  <p>No emails match your filter.</p>
-                </div>
-              )}
-            </div>
-          </aside>
+        <nav className="mail-nav-list">
+          {statusLabels.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              className={`mail-nav-item ${statusFilter === item.value ? "active" : ""}`}
+              onClick={() => setStatusFilter(item.value)}
+            >
+              <span>{item.label}</span>
+              <strong>{counts[item.value]}</strong>
+            </button>
+          ))}
+        </nav>
 
-          <main className="detail-card" style={{ padding: "2rem" }}>
-            {!detail && <div className="loader large" aria-label="Loading" />}
-            {detail && (
-              <>
-                <div className="email-meta">
-                  <h1 style={{ fontSize: "1.6rem" }}>{detail.subject}</h1>
-                  <div className="meta-row">
-                    <span className="label">From:</span>
-                    <span>{detail.sender}</span>
-                  </div>
-                  <div className="meta-row">
-                    <span className="label">Date:</span>
-                    <span>{detail.date}</span>
-                  </div>
-                </div>
-                <div className="email-content">{detail.body || "No content."}</div>
-              </>
-            )}
-          </main>
+        <div className="mail-sidebar-section">
+          <label htmlFor="mailbox-filter">Mailbox</label>
+          <select
+            id="mailbox-filter"
+            value={mailboxFilter}
+            onChange={(event) => setMailboxFilter(event.target.value)}
+          >
+            <option value="all">All mailboxes</option>
+            {mailboxes.map((mailbox) => (
+              <option key={mailbox} value={mailbox}>
+                {mailbox}
+              </option>
+            ))}
+          </select>
         </div>
-      )}
+
+        <div className="mail-sidebar-section">
+          <label htmlFor="source-filter">Body source</label>
+          <select
+            id="source-filter"
+            value={sourceFilter}
+            onChange={(event) => setSourceFilter(event.target.value)}
+          >
+            <option value="all">All sources</option>
+            {bodySources.map((source) => (
+              <option key={source} value={source}>
+                {source}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="mail-sidebar-footer">
+          <span>{fixture?.manifest.count ?? emails.length} fixture emails</span>
+          <span>{fixture?.manifest.generated_at ?? "No generated timestamp"}</span>
+        </div>
+      </aside>
+
+      <section className="mail-list-pane">
+        <header className="mail-list-toolbar">
+          <div>
+            <h2>{statusLabels.find((item) => item.value === statusFilter)?.label}</h2>
+            <p>
+              {filtered.length} shown of {emails.length}
+            </p>
+          </div>
+          <button type="button" className="mail-ghost-button" onClick={clearFilters}>
+            Clear
+          </button>
+        </header>
+
+        <div className="mail-search-row">
+          <input
+            type="search"
+            placeholder="Search sender, subject, snippet, body"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </div>
+
+        <div className="mail-message-list">
+          {filtered.map((email) => {
+            const active = email.uid === selectedUid;
+            const unread = !isRead(email);
+            return (
+              <button
+                key={email.uid}
+                type="button"
+                onClick={() => {
+                  setDetail(null);
+                  setSelectedUid(email.uid);
+                }}
+                className={`mail-row ${active ? "active" : ""} ${unread ? "unread" : ""}`}
+              >
+                <span className="mail-avatar">{initials(email.sender)}</span>
+                <span className="mail-row-main">
+                  <span className="mail-row-topline">
+                    <strong>{senderName(email.sender)}</strong>
+                    <time>{displayDate(email)}</time>
+                  </span>
+                  <span className="mail-row-subject">{email.subject || "(No Subject)"}</span>
+                  <span className="mail-row-snippet">{email.snippet}</span>
+                  <span className="mail-row-tags">
+                    {unread && <span className="mail-tag unread">Unread</span>}
+                    {hasAttachments(email) && <span className="mail-tag">Attachment</span>}
+                    {isFlagged(email) && <span className="mail-tag flagged">Flagged</span>}
+                    {containsSecret(email) && <span className="mail-tag secret">Possible secret</span>}
+                    {email.has_html && <span className="mail-tag">HTML</span>}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+
+          {fixture && filtered.length === 0 && (
+            <div className="mail-empty-list">
+              <h3>No messages match</h3>
+              <p>Adjust the current filters or clear them.</p>
+            </div>
+          )}
+
+          {!fixture && <div className="loader large" aria-label="Loading" />}
+        </div>
+      </section>
+
+      <main className="mail-reader-pane">
+        {!detail && selectedUid && <div className="loader large" aria-label="Loading" />}
+        {!selectedUid && (
+          <div className="mail-empty-state">
+            <h2>Select a message</h2>
+            <p>The message body and metadata will appear here.</p>
+          </div>
+        )}
+
+        {detail && (
+          <article className="mail-reader">
+            <header className="mail-reader-header">
+              <div className="mail-reader-subject">
+                <p>{detail.mailbox || "INBOX"}</p>
+                <h2>{detail.subject || "(No Subject)"}</h2>
+              </div>
+              <div className="mail-reader-actions">
+                {detail.has_html && detail.html_body && (
+                  <div className="mail-view-toggle" aria-label="Body view">
+                    <button
+                      type="button"
+                      className={bodyView === "html" ? "active" : ""}
+                      onClick={() => setBodyView("html")}
+                    >
+                      HTML
+                    </button>
+                    <button
+                      type="button"
+                      className={bodyView === "text" ? "active" : ""}
+                      onClick={() => setBodyView("text")}
+                    >
+                      Text
+                    </button>
+                  </div>
+                )}
+              </div>
+            </header>
+
+            <section className="mail-reader-meta">
+              <span className="mail-avatar large">{initials(detail.sender)}</span>
+              <div>
+                <strong>{senderName(detail.sender)}</strong>
+                <span>{detail.sender}</span>
+              </div>
+              <time>{displayDate(detail)}</time>
+            </section>
+
+            <section className="mail-reader-badges">
+              <span className={`mail-tag ${isRead(detail) ? "" : "unread"}`}>
+                {isRead(detail) ? "Read" : "Unread"}
+              </span>
+              {detail.body_source && <span className="mail-tag">Source: {detail.body_source}</span>}
+              {hasAttachments(detail) && (
+                <span className="mail-tag">Attachments: {detail.attachment_count ?? detail.attachments?.length}</span>
+              )}
+              {isFlagged(detail) && <span className="mail-tag flagged">Flagged</span>}
+              {containsSecret(detail) && (
+                <span className="mail-tag secret">Possible secrets: {detail.secret_count ?? 1}</span>
+              )}
+            </section>
+
+            {containsSecret(detail) && (
+              <section className="mail-warning-panel">
+                <h3>Possible secrets found</h3>
+                <ul>
+                  {(detail.secret_findings ?? []).map((finding, index) => (
+                    <li key={`${finding.type ?? "secret"}-${index}`}>
+                      <strong>{finding.label || finding.type || "Possible secret"}</strong>
+                      {finding.evidence && <code>{finding.evidence}</code>}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            <section className="mail-body-card">
+              {bodyView === "html" && detail.html_body ? (
+                <iframe
+                  title={`HTML email ${detail.uid}`}
+                  className="mail-html-frame"
+                  sandbox=""
+                  referrerPolicy="no-referrer"
+                  srcDoc={detail.html_body}
+                />
+              ) : (
+                <div className="mail-plain-body">{detail.body || "No content."}</div>
+              )}
+            </section>
+
+            {hasAttachments(detail) && (
+              <section className="mail-attachment-panel">
+                <h3>Attachments</h3>
+                <ul>
+                  {(detail.attachments ?? []).map((attachment, index) => (
+                    <li key={`${attachment.filename ?? "attachment"}-${index}`}>
+                      <span>{attachment.filename || "(unnamed)"}</span>
+                      <small>
+                        {[attachment.content_type, attachment.size ? `${attachment.size} bytes` : ""]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </small>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </article>
+        )}
+      </main>
     </div>
   );
 }
