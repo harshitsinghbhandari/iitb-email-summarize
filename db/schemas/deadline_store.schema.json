@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://inbox-broadcast.dev/schemas/deadline_store.json",
   "title": "DeadlineStore",
-  "description": "On-disk shape of deadlines.json, written by db.store.",
+  "description": "On-disk shape of db/runtime/deadlines.json, written by db.store.",
   "type": "object",
   "required": ["version", "processed", "deadlines"],
   "properties": {

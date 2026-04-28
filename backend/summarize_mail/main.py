@@ -1,16 +1,13 @@
 import requests
 import json
-import os
 import hashlib
 import logging
-from pathlib import Path
 from datetime import datetime, timedelta, timezone
+from db.store import LEGACY_SUMMARIES_FILE, SUMMARIES_FILE
 from .config import MODEL, OLLAMA_BASE_URL
 from .PROMPT import SYSTEM_PROMPT
 
 logger = logging.getLogger("summarize_mail")
-ROOT_DIR = Path(__file__).resolve().parents[2]
-SUMMARIES_FILE = Path(os.getenv("SUMMARIES_FILE", ROOT_DIR / "summaries.json"))
 
 
 def get_prompt_hash():
@@ -23,11 +20,15 @@ def load_summaries():
     Loads summaries from the JSON cache file.
     If the system prompt has changed, the cache is invalidated and reset.
     """
-    if not SUMMARIES_FILE.exists():
+    summaries_file = SUMMARIES_FILE
+    if not summaries_file.exists() and LEGACY_SUMMARIES_FILE.exists():
+        summaries_file = LEGACY_SUMMARIES_FILE
+
+    if not summaries_file.exists():
         return {"prompt_hash": get_prompt_hash(), "summaries": {}}
 
     try:
-        with SUMMARIES_FILE.open("r", encoding="utf-8") as f:
+        with summaries_file.open("r", encoding="utf-8") as f:
             data = json.load(f)
 
         if not isinstance(data, dict) or "prompt_hash" not in data or "summaries" not in data:

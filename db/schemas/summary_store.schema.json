@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://inbox-broadcast.dev/schemas/summary_store.json",
   "title": "SummaryStore",
-  "description": "On-disk shape of summaries.json, written by summarize_mail.",
+  "description": "On-disk shape of db/runtime/summaries.json, written by summarize_mail.",
   "type": "object",
   "required": ["prompt_hash", "summaries"],
   "properties": {

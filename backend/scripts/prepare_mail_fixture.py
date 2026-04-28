@@ -14,8 +14,20 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_SOURCE_FILE = REPO_ROOT / "mail_harvest" / "emails.jsonl"
-DEFAULT_OUTPUT_FILE = REPO_ROOT / "mail_harvest" / "sanitized_emails.json"
+BACKEND_DIR = REPO_ROOT / "backend"
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from db.store import (  # noqa: E402
+    LEGACY_MAIL_RECORDS_FILE,
+    MAIL_RECORDS_FILE,
+    OFFLINE_FIXTURE_FILE,
+)
+
+DEFAULT_SOURCE_FILE = MAIL_RECORDS_FILE
+DEFAULT_OUTPUT_FILE = OFFLINE_FIXTURE_FILE
 
 HEADER_SUBSET_KEYS = (
     "from",
@@ -406,11 +418,16 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    if not args.source.exists():
-        print(f"Source file not found: {args.source}", file=sys.stderr)
+    source = args.source
+    if source == DEFAULT_SOURCE_FILE and not source.exists() and LEGACY_MAIL_RECORDS_FILE.exists():
+        source = LEGACY_MAIL_RECORDS_FILE
+        print(f"Using legacy source file: {source}")
+
+    if not source.exists():
+        print(f"Source file not found: {source}", file=sys.stderr)
         return 1
 
-    fixture = write_fixture(args.source, args.output)
+    fixture = write_fixture(source, args.output)
     print(f"Wrote {fixture['manifest']['count']} email(s) to {args.output}")
     return 0
 

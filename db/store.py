@@ -1,4 +1,4 @@
-"""JSON persistence for extracted deadline results."""
+"""JSON persistence for Inbox Broadcast runtime state."""
 
 from __future__ import annotations
 
@@ -9,12 +9,42 @@ from pathlib import Path
 from typing import Any
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
-DEADLINES_FILE = Path(os.getenv("DEADLINES_FILE", ROOT_DIR / "deadlines.json"))
+RUNTIME_DIR = Path(os.getenv("DB_RUNTIME_DIR", ROOT_DIR / "db" / "runtime"))
+MAIL_HARVEST_DIR = Path(os.getenv("MAIL_HARVEST_DIR", RUNTIME_DIR / "mail_harvest"))
+MAIL_RECORDS_FILE = Path(os.getenv("MAIL_RECORDS_FILE", MAIL_HARVEST_DIR / "emails.jsonl"))
+MAIL_HARVEST_STATE_FILE = Path(
+    os.getenv("MAIL_HARVEST_STATE_FILE", MAIL_HARVEST_DIR / "state.json")
+)
+OFFLINE_FIXTURE_FILE = Path(
+    os.getenv("OFFLINE_FIXTURE_FILE", MAIL_HARVEST_DIR / "sanitized_emails.json")
+)
+DEADLINES_FILE = Path(os.getenv("DEADLINES_FILE", RUNTIME_DIR / "deadlines.json"))
+SUMMARIES_FILE = Path(os.getenv("SUMMARIES_FILE", RUNTIME_DIR / "summaries.json"))
+LEGACY_DEADLINES_FILE = ROOT_DIR / "deadlines.json"
+LEGACY_SUMMARIES_FILE = ROOT_DIR / "summaries.json"
+LEGACY_MAIL_RECORDS_FILE = ROOT_DIR / "mail_harvest" / "emails.jsonl"
 
 
 def utc_now_iso() -> str:
     """Return the current UTC timestamp as an ISO-8601 string."""
     return datetime.now(timezone.utc).isoformat()
+
+
+def append_mail_record(record: dict[str, Any], path: Path = MAIL_RECORDS_FILE) -> None:
+    """Append one fetched mail record to the mail JSONL store."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False, sort_keys=True))
+        f.write("\n")
+
+
+def write_mail_harvest_state(
+    state: dict[str, Any], path: Path = MAIL_HARVEST_STATE_FILE
+) -> None:
+    """Persist mail harvest state."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(state, f, indent=2, sort_keys=True)
 
 
 def empty_store() -> dict[str, Any]:
@@ -29,6 +59,9 @@ def empty_store() -> dict[str, Any]:
 
 def load_deadline_store(path: Path = DEADLINES_FILE) -> dict[str, Any]:
     """Load the deadline store, tolerating missing or malformed files."""
+    if path == DEADLINES_FILE and not path.exists() and LEGACY_DEADLINES_FILE.exists():
+        path = LEGACY_DEADLINES_FILE
+
     if not path.exists():
         return empty_store()
 

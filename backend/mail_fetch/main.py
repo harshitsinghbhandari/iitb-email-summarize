@@ -1,6 +1,7 @@
 import ssl
 import logging
 from imap_tools import MailBox
+from db.store import append_mail_record, utc_now_iso
 from .config import (
     IMAP_SERVER,
     IMAP_PORT,
@@ -40,6 +41,67 @@ def _handle_imap_error(e, context_msg=""):
     return msg
 
 
+def _normalize_headers(headers):
+    normalized = {}
+    if not isinstance(headers, dict):
+        return normalized
+
+    for key, value in headers.items():
+        if isinstance(value, (list, tuple)):
+            normalized[str(key)] = [str(item) for item in value]
+        elif value is None:
+            normalized[str(key)] = []
+        else:
+            normalized[str(key)] = [str(value)]
+    return normalized
+
+
+def _attachment_metadata(message):
+    metadata = []
+    for attachment in message.attachments:
+        metadata.append(
+            {
+                "filename": getattr(attachment, "filename", None),
+                "content_type": getattr(attachment, "content_type", None),
+                "size": getattr(attachment, "size", None),
+                "content_id": getattr(attachment, "content_id", None),
+            }
+        )
+    return metadata
+
+
+def message_to_db_record(message):
+    """Return the full DB record shape for a fetched IMAP message."""
+    return {
+        "uid": str(message.uid),
+        "mailbox": MAILBOX,
+        "fetched_at": utc_now_iso(),
+        "subject": message.subject or "(No Subject)",
+        "sender": message.from_,
+        "to": message.to,
+        "cc": message.cc,
+        "bcc": message.bcc,
+        "reply_to": message.reply_to,
+        "date": message.date.isoformat() if message.date else None,
+        "date_raw": message.date_str,
+        "flags": list(message.flags or []),
+        "size": message.size,
+        "size_rfc822": message.size_rfc822,
+        "headers": _normalize_headers(message.headers),
+        "text": message.text or "",
+        "html": message.html or "",
+        "attachments": _attachment_metadata(message),
+    }
+
+
+def persist_message(message) -> None:
+    """Persist a fetched message to the DB-backed mail JSONL store."""
+    try:
+        append_mail_record(message_to_db_record(message))
+    except Exception:
+        logger.exception("Failed to persist fetched email UID %s", getattr(message, "uid", "?"))
+
+
 def get_last_10_emails():
     """Reads emails from the configured IMAP mailbox, filtering out ignored addresses."""
     try:
@@ -50,6 +112,7 @@ def get_last_10_emails():
             emails = []
             for msg in mailbox.fetch(reverse=True):
                 if msg.from_.lower() not in IGNORE_EMAILS:
+                    persist_message(msg)
                     emails.append(
                         {
                             "uid": msg.uid,
@@ -87,6 +150,7 @@ def get_email_by_uid(uid):
             IMAP_USERNAME, IMAP_PASSWORD, initial_folder=MAILBOX
         ) as mailbox:
             for msg in mailbox.fetch(f"UID {uid}", limit=1):
+                persist_message(msg)
                 return {
                     "uid": msg.uid,
                     "subject": msg.subject or "(No Subject)",

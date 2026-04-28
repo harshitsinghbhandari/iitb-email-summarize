@@ -1,12 +1,18 @@
 import json
 import logging
 import os
+import sys
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from db.store import OFFLINE_FIXTURE_FILE
 from mail_fetch.config import validate_config
 from mail_fetch.main import get_all_uids, get_email_by_uid, get_last_10_emails
 from notify.main import send_to_discord
@@ -36,8 +42,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-OFFLINE_FIXTURE_PATH = REPO_ROOT / "mail_harvest" / "sanitized_emails.json"
+OFFLINE_FIXTURE_PATH = OFFLINE_FIXTURE_FILE
 OFFLINE_FIXTURE_COMMAND = "python backend/scripts/prepare_mail_fixture.py"
 
 

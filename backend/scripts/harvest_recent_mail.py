@@ -16,6 +16,8 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = BACKEND_DIR.parent
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from imap_tools import MailBox  # noqa: E402
 
@@ -28,8 +30,9 @@ from mail_fetch.config import (  # noqa: E402
     validate_config,
 )
 from mail_fetch.main import _get_imap_context  # noqa: E402
+from db.store import MAIL_HARVEST_DIR, append_mail_record, write_mail_harvest_state  # noqa: E402
 
-DEFAULT_OUTPUT_DIR = REPO_ROOT / "mail_harvest"
+DEFAULT_OUTPUT_DIR = MAIL_HARVEST_DIR
 
 
 def utc_now() -> str:
@@ -107,14 +110,11 @@ def message_to_record(message: Any) -> dict[str, Any]:
 
 
 def append_record(jsonl_path: Path, record: dict[str, Any]) -> None:
-    with jsonl_path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(record, ensure_ascii=False, sort_keys=True))
-        f.write("\n")
+    append_mail_record(record, path=jsonl_path)
 
 
 def write_state(state_path: Path, state: dict[str, Any]) -> None:
-    with state_path.open("w", encoding="utf-8") as f:
-        json.dump(state, f, indent=2, sort_keys=True)
+    write_mail_harvest_state(state, path=state_path)
 
 
 def chunks(values: list[str], size: int) -> list[list[str]]:

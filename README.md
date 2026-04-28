@@ -106,11 +106,17 @@ npm run typecheck
 
 ### Database / Persistence
 
-Runtime state lives in JSON files at the repo root (gitignored):
+Runtime state lives in JSON/JSONL files under `db/runtime/` (gitignored):
 
-- `summaries.json` — written by `backend/summarize_mail` (override with
+- `db/runtime/summaries.json` — written by `backend/summarize_mail` (override with
   `SUMMARIES_FILE`)
-- `deadlines.json` — written by `db.store` (override with `DEADLINES_FILE`)
+- `db/runtime/deadlines.json` — written by `db.store` (override with `DEADLINES_FILE`)
+- `db/runtime/mail_harvest/emails.jsonl` — full fetched/harvested email records
+- `db/runtime/mail_harvest/sanitized_emails.json` — offline viewer fixture
+
+Set `DB_RUNTIME_DIR` to move all default runtime stores together.
+If older root-level JSON files exist, the app can read them as a fallback until
+the corresponding `db/runtime/` file is written.
 
 Seed examples are in `db/seeds/`.
 
@@ -131,6 +137,8 @@ Seed examples are in `db/seeds/`.
 
 ```bash
 env/bin/python backend/scripts/check_mail_fetch.py
+env/bin/python backend/scripts/harvest_recent_mail.py --target 100
+env/bin/python backend/scripts/prepare_mail_fixture.py
 env/bin/python backend/scripts/check_deadline_function_calling.py
 env/bin/python backend/scripts/evaluate_deadline_function_calling.py
 DEADLINE_FUNCTION_MODEL=minimax-m2.5:cloud \
