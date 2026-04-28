@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LLM Forge Report - IITB Mail Command Center Roadmap</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; color: #102027; background: #f6fafb; }
+    main { max-width: 1080px; margin: 0 auto; padding: 40px 24px; }
+    h1, h2, h3 { color: #0f3f46; }
+    .hero { background: #ffffff; border: 1px solid #d9eaee; border-radius: 12px; padding: 28px; box-shadow: 0 8px 24px rgba(15,63,70,.08); }
+    .accent { color: #087987; font-weight: 700; }
+    section { background: #ffffff; border: 1px solid #d9eaee; border-radius: 10px; padding: 22px; margin-top: 18px; }
+    code { background: #eef7f8; padding: 2px 5px; border-radius: 4px; }
+    ul { line-height: 1.55; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .card { border-left: 4px solid #0b8793; background: #f9fcfd; padding: 14px 16px; border-radius: 8px; }
+    details { margin-top: 10px; border: 1px solid #d9eaee; border-radius: 8px; padding: 12px 14px; background: #fbfefe; }
+    summary { cursor: pointer; font-weight: 700; color: #0f3f46; }
+    footer { color: #587076; margin-top: 28px; font-size: 14px; }
+  </style>
+</head>
+<body>
+<main>
+  <div class="hero">
+    <h1>LLM Forge Report</h1>
+    <p><span class="accent">Artifact:</span> IITB Mail Command Center Roadmap</p>
+    <p><span class="accent">Purpose:</span> Improve the roadmap from a broad feature plan into an aggressive, product-led, implementation-ready build strategy.</p>
+  </div>
+
+  <section>
+    <h2>The Forged Version</h2>
+    <p>The forged roadmap is saved at <code>docs/product-roadmap.md</code>.</p>
+    <p>The core upgrade: the roadmap now centers on a <strong>30-second morning trust promise</strong>, while preserving hard engineering gates around SQLite, background sync, safe delete, Discord idempotency, and AI review loops.</p>
+  </section>
+
+  <section>
+    <h2>Before / After</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Before</h3>
+        <ul>
+          <li>Good phase list, but mostly feature-oriented.</li>
+          <li>SQLite and safety were present but not framed as hard gates.</li>
+          <li>AI correction and learning loop was underdefined.</li>
+          <li>Success criteria were mostly qualitative.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>After</h3>
+        <ul>
+          <li>Product-led promise: open every morning and trust within 30 seconds.</li>
+          <li>SQLite, sync, auditability, and idempotency are explicit foundations.</li>
+          <li>Dedicated review and correction loop for AI mistakes.</li>
+          <li>Immediate sprint and next sprint have clear definitions of done.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What Changed and Why</h2>
+    <ul>
+      <li><strong>Product framing:</strong> Added daily user loop and measurable success targets so engineering choices serve real usage.</li>
+      <li><strong>Reliability gates:</strong> Moved SQLite, background sync, safe delete, and Discord dedupe into hard requirements.</li>
+      <li><strong>AI trust loop:</strong> Added correction, evidence, raw output, model metadata, and review states.</li>
+      <li><strong>Scope control:</strong> Added explicit out-of-scope items for the immediate sprint.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>What the Forge Couldn't Fix</h2>
+    <ul>
+      <li>Exact SQLite schema still needs implementation discovery.</li>
+      <li>IITB IMAP trash behavior must be tested before choosing trash-first delete.</li>
+      <li>Discord deep links into the local app need a routing decision.</li>
+      <li>AI quality targets need measurement on real IITB email samples.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Craftsperson Notes</h2>
+    <details><summary>The Surgeon</summary><p>Cut scope, added Do Not Build Yet, and forced SQLite/safety before AI expansion.</p></details>
+    <details><summary>The Architect</summary><p>Added the strongest phased structure: immediate sprint, next sprint, milestones, and non-goals.</p></details>
+    <details><summary>The Sharpener</summary><p>Specified schema fields, safety mode, model/prompt metadata, and precise processing states.</p></details>
+    <details><summary>The Humanizer</summary><p>Created the 30-second morning trust promise and daily user loop.</p></details>
+    <details><summary>The Stress-Tester</summary><p>Added failure-mode coverage for IMAP, delete, dates, Discord dedupe, and daemon idempotency.</p></details>
+  </section>
+
+  <section>
+    <h2>Peer Review Highlights</h2>
+    <ul>
+      <li>Most reviewers favored the product-led 30-second trust framing.</li>
+      <li>All reviewers agreed safety and idempotency are central to trust.</li>
+      <li>Reviewers warned against turning the roadmap into only an infrastructure backlog.</li>
+      <li>Reviewers identified the AI correction loop as the largest missing product system.</li>
+    </ul>
+  </section>
+
+  <footer>Generated 2026-04-27 21:50:00 IST.</footer>
+</main>
+</body>
+</html>
