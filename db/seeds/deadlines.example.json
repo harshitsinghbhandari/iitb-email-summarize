@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "updated_at": "2026-04-28T00:00:00+00:00",
+  "processed": {
+    "1001": {
+      "processed_at": "2026-04-28T00:00:00+00:00",
+      "has_deadline": true,
+      "model": "minimax-m2.5:cloud"
+    }
+  },
+  "deadlines": [
+    {
+      "uid": "1001",
+      "subject": "CS 101 Assignment 4",
+      "sender": "prof@iitb.ac.in",
+      "email_date": "Apr 28, 2026 09:00 AM IST",
+      "processed_at": "2026-04-28T00:00:00+00:00",
+      "model": "minimax-m2.5:cloud",
+      "title": "CS 101 Assignment 4",
+      "due_date": "2026-04-30",
+      "source_text": "Submit Assignment 4 on Moodle by 11:59 PM on April 30, 2026.",
+      "action_required": true,
+      "confidence": 0.95,
+      "discord_sent_at": null,
+      "discord_error": null
+    }
+  ]
+}

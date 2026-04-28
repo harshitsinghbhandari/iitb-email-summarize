@@ -1,128 +1,154 @@
 # 📧 Inbox Broadcast
 
-A sleek, AI-powered mail viewer designed for **IIT Bombay students**. It fetches your latest campus emails, provides instant AI summaries, and manages a prioritized processing queue to help you stay on top of academic and administrative updates.
+A sleek, AI-powered mail viewer designed for **IIT Bombay students**. It
+fetches your latest campus emails, provides instant AI summaries, and
+manages a prioritized processing queue to help you stay on top of academic
+and administrative updates.
 
 ## ✨ Features
 
-- **Live Mail View**: A modern, glassmorphism-inspired web interface to browse your inbox.
-- **Rich AI Summarization**: Integrated with Ollama to provide concise, Markdown-formatted summaries including an overview, quick details, and prioritized key items.
-- **Smart Filtering**: Ability to ignore specific email addresses (e.g., redundant newsletters) to keep your view clean.
-- **Summary Caching**: JSON-based caching system with prompt-hash validation to ensure instant loads and automatic updates when the AI prompt changes.
-- **Prioritized Processing**: A batch summarization endpoint that processes emails starting from the oldest (smallest UID) first.
-- **Discord Integration**: Send AI-generated summaries directly to your Discord channel with a single click.
+- **Live Mail View** — Vite + React SPA with a glassmorphism aesthetic.
+- **Rich AI Summarization** — Markdown summaries via Ollama (overview, quick
+  details, prioritized key items).
+- **Smart Filtering** — ignore specific senders to keep the view clean.
+- **Summary Caching** — JSON cache invalidated by prompt-hash mismatch.
+- **Prioritized Processing** — batch summarize the oldest unsummarized UIDs.
+- **Discord Integration** — send summaries or extracted deadlines to Discord.
+
+## 📁 Repository Layout
+
+This repo is a small monorepo with three top-level areas:
+
+```
+.
+├── backend/                FastAPI Python service (only JSON; no HTML)
+│   ├── app/                FastAPI application + routes
+│   ├── mail_fetch/         IMAP fetching + config
+│   ├── summarize_mail/     Ollama summarization client + cache
+│   ├── notify/             Discord webhook integration
+│   ├── deadline_tools/     Function-calling deadline extractor + daemon
+│   ├── scripts/            CLI utilities (mail check, harvest, daemon, etc.)
+│   └── tests/              pytest suite
+├── frontend/               Vite + React + TypeScript SPA
+│   ├── src/pages/          /, /email/:uid, /offline routes
+│   ├── src/components/     Toast, Markdown, Nav, hooks
+│   └── src/lib/api.ts      typed fetch client to /api/*
+├── db/                     Persistence layer
+│   ├── store.py            JSON store for deadlines (db.store)
+│   ├── schemas/            JSON Schema for the on-disk shapes
+│   └── seeds/              copy-paste example payloads
+├── docs/                   Long-form notes and roadmap
+├── pyproject.toml          Python tooling (pytest, black, mypy)
+└── requirements.txt        Backend runtime dependencies
+```
+
+### Why this split
+
+- **backend** is a pure JSON API. Routing and rendering live in the SPA, so
+  swapping or hosting the frontend separately stays simple.
+- **frontend** is a standard Vite project — it can be deployed to any static
+  host or mounted behind FastAPI in production.
+- **db** owns persistence. Today this is JSON files; tomorrow it can become
+  a real database with no changes to call sites.
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
 - **Python 3.10+**
-- **Ollama**: The AI engine must be running in the background for summarization to work.
-  - **Installation**: 
-    - Visit [ollama.com](https://ollama.com/) for official installation instructions.
-    - **Linux/Mac**: Run `curl -fsSL https://ollama.com/install.sh | sh` in your terminal.
-    - **Windows**: Download and run the installer from the official website.
-  - **Running Ollama**: 
-    - You must either open the Ollama application from your apps menu **OR** run `ollama serve` in a separate terminal window.
-  - **Pull the Model**:
-    ```bash
-    ollama pull qwen3.5:0.8b
-    ```
+- **Node 20+** (for the frontend)
+- **Ollama** running locally for AI summaries:
+  - macOS / Linux: `curl -fsSL https://ollama.com/install.sh | sh`
+  - Pull the model: `ollama pull qwen3.5:0.8b`
 
-### Installation
-
-1. **Clone the repository**
-2. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. **Configure Environment**:
-   Create a `.env` file in the `mail_fetch/` directory based on `.env.example`. Use the following IITB-specific settings:
-   ```env
-   IMAP_SERVER=imap.iitb.ac.in
-   IMAP_PORT=993
-   IMAP_USERNAME=ldapid@iitb.ac.in
-   IMAP_PASSWORD=your_sso_token
-   MAILBOX=INBOX
-   IGNORE_EMAILS=newsletter@spam.com,alerts@system.com
-   IMAP_ALLOW_INSECURE_SSL=false
-   ```
-
-   And create a `.env` file in the `notify/` directory for Discord notifications:
-   ```env
-   DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/your_webhook_url
-   ```
-
-   > **How to get your SSO token:**
-   > Go to [sso.iitb.ac.in](https://sso.iitb.ac.in) $\rightarrow$ **Manage account** $\rightarrow$ **Access tokens** $\rightarrow$ **Emails**.
-
-### Running the App
-
-Start the server using `uvicorn`:
-```bash
-uvicorn app.main:app --reload
-```
-Open your browser and visit: `http://127.0.0.1:8000`
-
-### Verify Mail Credentials
-
-To test only the IMAP credentials and mailbox access:
+### Backend
 
 ```bash
-python scripts/check_mail_fetch.py
+python -m venv env
+env/bin/pip install -r requirements.txt
 ```
 
-To test the experimental deadline function-calling module with Ollama:
+Create `backend/mail_fetch/.env` (IMAP credentials) and
+`backend/notify/.env` (Discord webhook). Examples are committed under each
+package as `.env.example`. SSO token reference:
+[sso.iitb.ac.in](https://sso.iitb.ac.in) → Manage account → Access tokens →
+Emails.
+
+Run the API:
 
 ```bash
-ollama pull functiongemma:270m
-python scripts/check_deadline_function_calling.py
+env/bin/uvicorn --app-dir backend app.main:app --reload
 ```
 
-To run the broader live deadline extraction evaluation:
+The backend serves only `/api/*`. Tests:
 
 ```bash
-python scripts/evaluate_deadline_function_calling.py
+env/bin/pytest
 ```
 
-To run deadline extraction once against recent email and post new deadlines to Discord:
+### Frontend
 
 ```bash
-DEADLINE_FUNCTION_MODEL=minimax-m2.5:cloud python scripts/run_deadline_daemon.py --once
+cd frontend
+npm install
+npm run dev
 ```
 
-To keep it running in the background:
+Open http://localhost:5173. The Vite dev server proxies `/api/*` to
+`http://127.0.0.1:8000` (override with `VITE_BACKEND_URL`). Production
+build:
 
 ```bash
-DEADLINE_FUNCTION_MODEL=minimax-m2.5:cloud python scripts/run_deadline_daemon.py --interval 300
+npm run build       # outputs frontend/dist/
+npm run lint
+npm run typecheck
 ```
 
-Extracted deadlines are saved to `deadlines.json`. Use `--no-discord` to update the local deadline store without posting to Discord.
+### Database / Persistence
+
+Runtime state lives in JSON files at the repo root (gitignored):
+
+- `summaries.json` — written by `backend/summarize_mail` (override with
+  `SUMMARIES_FILE`)
+- `deadlines.json` — written by `db.store` (override with `DEADLINES_FILE`)
+
+Seed examples are in `db/seeds/`.
 
 ## 🛠️ API Endpoints
 
 | Endpoint | Method | Description |
 | :--- | :--- | :--- |
-| `/` | GET | Serves the main Inbox UI |
-| `/api/emails` | GET | Fetches the last 10 non-ignored emails |
-| `/api/email/{uid}` | GET | Fetches a specific email and its cached/new summary |
-| `/api/email/{uid}/summary` | GET | Retrieves only the AI summary for a specific email |
-| `/api/email/{uid}/discord` | POST | Sends an email summary to a Discord webhook |
-| `/api/summarize-pending` | GET | Triggers batch summarization for all unsummarized emails in ascending order |
+| `/api/health` | GET | Liveness probe |
+| `/api/emails` | GET | Last 10 non-ignored emails |
+| `/api/email/{uid}` | GET | Single email + summary |
+| `/api/email/{uid}/summary` | GET | Cached or freshly generated summary |
+| `/api/email/{uid}/discord` | POST | Send the summary to Discord |
+| `/api/summarize-pending` | GET | Batch summarize unsummarized UIDs |
+| `/api/offline/emails` | GET | List from harvested fixture |
+| `/api/offline/email/{uid}` | GET | Single email from fixture |
 
-## 📁 Project Structure
+## 🧪 Useful Scripts
 
-- `app/`: FastAPI application and Jinja2 templates.
-- `mail_fetch/`: IMAP integration and configuration.
-- `summarize_mail/`: LLM prompt and caching logic.
-- `notify/`: Discord notification system.
-- `summaries.json`: Local cache storing `{uid: summary}`.
+```bash
+env/bin/python backend/scripts/check_mail_fetch.py
+env/bin/python backend/scripts/check_deadline_function_calling.py
+env/bin/python backend/scripts/evaluate_deadline_function_calling.py
+DEADLINE_FUNCTION_MODEL=minimax-m2.5:cloud \
+  env/bin/python backend/scripts/run_deadline_daemon.py --once
+```
 
 ## ⚙️ Configuration Notes
 
-- `mail_fetch/.env` and `notify/.env` are loaded explicitly, so the app works the same way whether you run it from the repo root or another working directory.
-- IMAP TLS certificate verification is enabled by default. If your mail server only works with legacy or unverifiable TLS, set `IMAP_ALLOW_INSECURE_SSL=true` in `mail_fetch/.env`.
-- Summary cache location defaults to `summaries.json` in the repo root. Set `SUMMARIES_FILE=/absolute/path/to/summaries.json` to move it.
+- `backend/mail_fetch/.env` and `backend/notify/.env` are loaded explicitly
+  so the app behaves the same whether you run it from the repo root or from
+  `backend/`.
+- IMAP TLS verification is enabled by default. Set
+  `IMAP_ALLOW_INSECURE_SSL=true` only if your server requires legacy TLS.
+- CORS for the dev server is enabled for `http://localhost:5173`. Override
+  with `CORS_ALLOW_ORIGINS=https://prod.example.com,...`.
 
 ## 🛡️ Security Note
 
-This application uses the IMAP protocol to access your mail. Always use an **SSO Access Token** as described in the configuration section rather than your main LDAP password to ensure the security of your account. Keep `IMAP_ALLOW_INSECURE_SSL=false` unless you specifically need compatibility with an older mail server.
+This application uses IMAP. Always use an **SSO Access Token** rather than
+your main LDAP password, and keep `IMAP_ALLOW_INSECURE_SSL=false` unless
+you specifically need legacy TLS compatibility.
