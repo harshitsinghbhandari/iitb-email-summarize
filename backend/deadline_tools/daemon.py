@@ -11,14 +11,15 @@ from mail_fetch.config import EMAILS_TO_FETCH, validate_config
 from mail_fetch.main import get_email_by_uid, get_last_10_emails
 from notify.main import send_deadline_to_discord
 
-from .function_calling import DEADLINE_FUNCTION_MODEL, call_deadline_tool
-from .store import (
+from db.store import (
     DEADLINES_FILE,
     load_deadline_store,
     mark_deadline_discord_result,
     save_deadline_store,
     upsert_processed_result,
 )
+
+from .function_calling import DEADLINE_FUNCTION_MODEL, call_deadline_tool
 
 logger = logging.getLogger("deadline_daemon")
 

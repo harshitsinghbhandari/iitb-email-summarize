@@ -81,7 +81,7 @@ def test_missing_offline_fixture_returns_clear_error(tmp_path, monkeypatch):
     assert response.status_code == 404
     assert data["status"] == "error"
     assert "Offline fixture not found" in data["message"]
-    assert data["command"] == "env/bin/python scripts/prepare_mail_fixture.py"
+    assert data["command"] == "python backend/scripts/prepare_mail_fixture.py"
 
 
 def test_unknown_offline_uid_returns_not_found(tmp_path, monkeypatch):

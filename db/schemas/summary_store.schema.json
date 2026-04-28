@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inbox-broadcast.dev/schemas/summary_store.json",
+  "title": "SummaryStore",
+  "description": "On-disk shape of summaries.json, written by summarize_mail.",
+  "type": "object",
+  "required": ["prompt_hash", "summaries"],
+  "properties": {
+    "prompt_hash": {
+      "type": "string",
+      "description": "SHA-256 of the active SYSTEM_PROMPT. Mismatch invalidates cache."
+    },
+    "summaries": {
+      "type": "object",
+      "description": "Map of email UID (string) to its cached AI summary.",
+      "additionalProperties": { "type": "string" }
+    }
+  }
+}

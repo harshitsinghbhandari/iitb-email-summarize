@@ -13,9 +13,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_SOURCE_FILE = ROOT_DIR / "mail_harvest" / "emails.jsonl"
-DEFAULT_OUTPUT_FILE = ROOT_DIR / "mail_harvest" / "sanitized_emails.json"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_SOURCE_FILE = REPO_ROOT / "mail_harvest" / "emails.jsonl"
+DEFAULT_OUTPUT_FILE = REPO_ROOT / "mail_harvest" / "sanitized_emails.json"
 
 HEADER_SUBSET_KEYS = (
     "from",

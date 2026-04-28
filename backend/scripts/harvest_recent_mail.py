@@ -12,9 +12,10 @@ import time
 from pathlib import Path
 from typing import Any
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+REPO_ROOT = BACKEND_DIR.parent
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
 
 from imap_tools import MailBox  # noqa: E402
 
@@ -28,7 +29,7 @@ from mail_fetch.config import (  # noqa: E402
 )
 from mail_fetch.main import _get_imap_context  # noqa: E402
 
-DEFAULT_OUTPUT_DIR = ROOT_DIR / "mail_harvest"
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "mail_harvest"
 
 
 def utc_now() -> str:

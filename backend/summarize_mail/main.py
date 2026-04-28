@@ -9,7 +9,7 @@ from .config import MODEL, OLLAMA_BASE_URL
 from .PROMPT import SYSTEM_PROMPT
 
 logger = logging.getLogger("summarize_mail")
-ROOT_DIR = Path(__file__).resolve().parent.parent
+ROOT_DIR = Path(__file__).resolve().parents[2]
 SUMMARIES_FILE = Path(os.getenv("SUMMARIES_FILE", ROOT_DIR / "summaries.json"))
 
 def get_prompt_hash():

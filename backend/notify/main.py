@@ -7,7 +7,7 @@ from pathlib import Path
 logger = logging.getLogger("notify")
 
 PACKAGE_DIR = Path(__file__).resolve().parent
-ROOT_DIR = PACKAGE_DIR.parent
+ROOT_DIR = PACKAGE_DIR.parents[1]
 
 # Load a repo-level .env first if present, then the notify-specific file.
 load_dotenv(ROOT_DIR / ".env")

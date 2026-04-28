@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inbox-broadcast.dev/schemas/deadline_store.json",
+  "title": "DeadlineStore",
+  "description": "On-disk shape of deadlines.json, written by db.store.",
+  "type": "object",
+  "required": ["version", "processed", "deadlines"],
+  "properties": {
+    "version": { "type": "integer", "const": 1 },
+    "updated_at": { "type": ["string", "null"], "format": "date-time" },
+    "processed": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["processed_at", "has_deadline", "model"],
+        "properties": {
+          "processed_at": { "type": "string", "format": "date-time" },
+          "has_deadline": { "type": "boolean" },
+          "model": { "type": "string" }
+        }
+      }
+    },
+    "deadlines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["uid", "title", "due_date"],
+        "properties": {
+          "uid": { "type": "string" },
+          "subject": { "type": "string" },
+          "sender": { "type": "string" },
+          "email_date": { "type": "string" },
+          "processed_at": { "type": "string", "format": "date-time" },
+          "model": { "type": "string" },
+          "title": { "type": "string" },
+          "due_date": { "type": "string" },
+          "source_text": { "type": "string" },
+          "action_required": { "type": "boolean" },
+          "confidence": { "type": "number" },
+          "discord_sent_at": { "type": ["string", "null"], "format": "date-time" },
+          "discord_error": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

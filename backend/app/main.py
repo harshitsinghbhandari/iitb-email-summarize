@@ -1,48 +1,49 @@
 import json
+import logging
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
-from mail_fetch.main import get_last_10_emails, get_email_by_uid, get_all_uids
-from summarize_mail.main import get_summary, load_summaries
-from notify.main import send_to_discord
-from mail_fetch.config import validate_config
-import logging
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
-# Setup logging
+from mail_fetch.config import validate_config
+from mail_fetch.main import get_all_uids, get_email_by_uid, get_last_10_emails
+from notify.main import send_to_discord
+from summarize_mail.main import get_summary, load_summaries
+
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger("app")
 
-app = FastAPI(title="Inbox Broadcast")
+app = FastAPI(title="Inbox Broadcast API")
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
-OFFLINE_FIXTURE_PATH = ROOT_DIR / "mail_harvest" / "sanitized_emails.json"
-OFFLINE_FIXTURE_COMMAND = "env/bin/python scripts/prepare_mail_fixture.py"
+# The frontend (Vite + React) runs on a separate origin in development.
+# Override via CORS_ALLOW_ORIGINS=https://prod.example.com,...
+_default_origins = "http://localhost:5173,http://127.0.0.1:5173"
+_allowed_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ALLOW_ORIGINS", _default_origins).split(",")
+    if origin.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Setup Jinja2 templates directory
-templates_dir = os.path.join(os.path.dirname(__file__), "templates")
-os.makedirs(templates_dir, exist_ok=True)
-templates = Jinja2Templates(directory=templates_dir)
+REPO_ROOT = Path(__file__).resolve().parents[2]
+OFFLINE_FIXTURE_PATH = REPO_ROOT / "mail_harvest" / "sanitized_emails.json"
+OFFLINE_FIXTURE_COMMAND = "python backend/scripts/prepare_mail_fixture.py"
 
-@app.get("/", response_class=HTMLResponse)
-async def serve_ui(request: Request):
-    """Serve the stunning frontend web interface."""
-    return templates.TemplateResponse(request=request, name="index.html")
 
-@app.get("/email/{uid}", response_class=HTMLResponse)
-async def email_detail(request: Request, uid: str):
-    """Serve the detail page for a specific email."""
-    return templates.TemplateResponse(request=request, name="detail.html", context={"uid": uid})
-
-@app.get("/offline", response_class=HTMLResponse)
-async def offline_mail_viewer(request: Request):
-    """Serve the offline fixture-backed email viewer."""
-    return templates.TemplateResponse(request=request, name="offline.html")
+@app.get("/api/health")
+async def healthcheck() -> dict:
+    return {"status": "ok"}
 
 
 def load_offline_fixture() -> dict:
