@@ -1,32 +1,67 @@
 # Contributing to Inbox Broadcast 📧
 
-Thank you for your interest in improving Inbox Broadcast! We welcome contributions from the IIT Bombay community and beyond.
+Thank you for your interest in improving Inbox Broadcast! We welcome
+contributions from the IIT Bombay community and beyond.
 
 ## 🚀 Getting Started
 
-1. **Fork the Repository**: Create your own copy of the project.
-2. **Set Up Environment**: Follow the [Installation](#installation) guide in the `README.md`.
-3. **Create a Branch**: Give your branch a descriptive name:
-   `git checkout -b feature/your-feature-name` or `git checkout -b fix/issue-description`.
+1. Fork the repository and clone your fork.
+2. Set up the environment (see the **Getting Started** section in
+   [`README.md`](./README.md)) — Python virtualenv for the backend and
+   `npm install` inside `frontend/`.
+3. Create a descriptive branch:
+   `git checkout -b feature/your-feature-name` or
+   `git checkout -b fix/issue-description`.
+
+## 📁 Where Code Lives
+
+| Area | Path |
+| :--- | :--- |
+| FastAPI service & API routes | `backend/app/` |
+| IMAP, summarization, notifier | `backend/mail_fetch/`, `backend/summarize_mail/`, `backend/notify/` |
+| Deadline extraction | `backend/deadline_tools/` |
+| CLI scripts | `backend/scripts/` |
+| Pytest suite | `backend/tests/` |
+| React UI | `frontend/src/` |
+| JSON persistence + seeds | `db/` |
 
 ## 🛠️ Development Guidelines
 
-### Coding Style
-- **Python**: Follow PEP 8 guidelines. Use clear variable names and include docstrings for complex functions.
-- **Frontend**: Maintain the glassmorphism aesthetic. Use the established CSS variables in `app/templates` for consistency.
-- **AI Prompting**: When modifying `summarize_mail/PROMPT.py`, ensure the output remains concise and focused on a student's needs.
+### Python
 
-### Testing Your Changes
-- Run the server using `uvicorn app.main:app --reload`.
-- Verify that your changes don't break the IMAP fetching or the AI summarization pipeline.
-- Check that Markdown rendering still works across both index and detail views.
+- PEP 8, type hints on new functions, docstrings on classes / public APIs.
+- Format with `black .` and run `mypy backend db` before pushing.
+- Run `pytest` from the repo root.
+
+### Frontend
+
+- TypeScript strict mode is enabled — keep it that way.
+- Run `npm run lint`, `npm run typecheck`, and `npm run build` before
+  pushing UI changes.
+- Reuse the CSS variables in `frontend/src/index.css` to preserve the
+  glassmorphism aesthetic.
+
+### AI Prompting
+
+- When modifying `backend/summarize_mail/PROMPT.py`, keep the output
+  concise and tuned to student-facing summaries. Prompt-hash changes
+  invalidate the cache automatically.
+
+## ✅ Before opening a PR
+
+- `pytest`
+- `black .`
+- `cd frontend && npm run lint && npm run typecheck && npm run build`
+- Verify the IMAP / summarization pipeline still loads emails end-to-end.
 
 ## 📝 Pull Request Process
 
-1. **Push your changes** to your fork.
-2. **Open a Pull Request** using the provided PR template.
-3. **Provide a clear description** of what you changed and why.
-4. **Include screenshots** if you've made UI changes.
+1. Push your branch to your fork.
+2. Open a PR using the provided template.
+3. Describe **what changed and why** (include screenshots for UI changes).
+4. Make sure the `backend` and `frontend` GitHub Actions workflows pass.
 
 ## ⚖️ License
-By contributing to this project, you agree that your contributions will be licensed under the project's existing license.
+
+By contributing to this project, you agree that your contributions will be
+licensed under the project's existing license.
