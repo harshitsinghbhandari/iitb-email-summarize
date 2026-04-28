@@ -3,4 +3,6 @@
 env/
 summaries.json
 deadlines.json
+mail_harvest/
+mail_harvest/sanitized_emails.json
 __pycache__

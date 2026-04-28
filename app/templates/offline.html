@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline Mail Viewer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --surface-color: rgba(30, 41, 59, 0.72);
+            --surface-hover: rgba(30, 41, 59, 0.94);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #3b82f6;
+            --border: rgba(255, 255, 255, 0.08);
+            --error: #ef4444;
+            --success: #22c55e;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 2rem 1rem;
+        }
+
+        .shell {
+            width: 100%;
+            max-width: 1180px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+            gap: 1rem;
+        }
+
+        header {
+            max-width: 1180px;
+            margin: 0 auto 1.25rem;
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            align-items: flex-end;
+        }
+
+        h1 {
+            font-size: 2rem;
+            line-height: 1.1;
+            margin-bottom: 0.35rem;
+        }
+
+        .subtle { color: var(--text-muted); font-size: 0.95rem; }
+
+        .toolbar {
+            background: var(--surface-color);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem;
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+            flex-wrap: wrap;
+            max-width: 720px;
+        }
+
+        input[type="search"],
+        select {
+            flex: 1 1 220px;
+            min-width: 0;
+            border: 1px solid var(--border);
+            background: rgba(15, 23, 42, 0.8);
+            color: var(--text-main);
+            border-radius: 8px;
+            padding: 0.7rem 0.8rem;
+            font-size: 0.95rem;
+        }
+
+        select { flex: 0 1 160px; }
+
+        .status-tabs,
+        .stats {
+            max-width: 1180px;
+            margin: 0 auto 1rem;
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .status-tab,
+        .clear-btn {
+            border: 1px solid var(--border);
+            background: rgba(30, 41, 59, 0.72);
+            color: var(--text-muted);
+            border-radius: 8px;
+            padding: 0.55rem 0.75rem;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        .status-tab.active,
+        .clear-btn:hover {
+            color: var(--text-main);
+            border-color: rgba(59, 130, 246, 0.55);
+            background: rgba(59, 130, 246, 0.18);
+        }
+
+        .stat {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.55rem 0.7rem;
+            color: var(--text-muted);
+            font-size: 0.86rem;
+            background: rgba(15, 23, 42, 0.35);
+        }
+
+        .stat strong { color: var(--text-main); }
+
+        label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+
+        .pane {
+            min-height: 70vh;
+            background: var(--surface-color);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .list {
+            display: flex;
+            flex-direction: column;
+            max-height: 75vh;
+            overflow: auto;
+        }
+
+        .email-row {
+            width: 100%;
+            text-align: left;
+            border: 0;
+            border-bottom: 1px solid var(--border);
+            background: transparent;
+            color: inherit;
+            padding: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .email-row:hover,
+        .email-row.active { background: var(--surface-hover); }
+
+        .email-row.unread {
+            background: rgba(59, 130, 246, 0.08);
+        }
+
+        .email-row.unread .sender,
+        .email-row.unread .subject {
+            font-weight: 700;
+        }
+
+        .row-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 0.35rem;
+        }
+
+        .sender,
+        .subject {
+            overflow-wrap: anywhere;
+        }
+
+        .sender { font-weight: 600; }
+        .date { color: var(--text-muted); font-size: 0.8rem; white-space: nowrap; }
+        .subject { font-size: 0.98rem; margin-bottom: 0.35rem; }
+        .snippet { color: var(--text-muted); font-size: 0.88rem; line-height: 1.4; }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            margin-top: 0.55rem;
+            margin-right: 0.35rem;
+            color: var(--success);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            border-radius: 999px;
+            padding: 0.15rem 0.45rem;
+            font-size: 0.78rem;
+        }
+
+        .badge.unread-badge {
+            color: #93c5fd;
+            border-color: rgba(147, 197, 253, 0.36);
+        }
+
+        .badge.flagged-badge {
+            color: #facc15;
+            border-color: rgba(250, 204, 21, 0.36);
+        }
+
+        .badge.secret-badge {
+            color: #fca5a5;
+            border-color: rgba(248, 113, 113, 0.45);
+            background: rgba(127, 29, 29, 0.22);
+        }
+
+        .badge.muted-badge {
+            color: var(--text-muted);
+            border-color: var(--border);
+        }
+
+        .detail {
+            padding: 1.5rem;
+            max-height: 75vh;
+            overflow: auto;
+        }
+
+        .detail h2 {
+            font-size: 1.5rem;
+            line-height: 1.25;
+            margin-bottom: 1rem;
+            overflow-wrap: anywhere;
+        }
+
+        .meta {
+            display: grid;
+            grid-template-columns: 90px minmax(0, 1fr);
+            gap: 0.4rem 0.75rem;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1rem;
+            margin-bottom: 1rem;
+            overflow-wrap: anywhere;
+        }
+
+        .meta strong { color: var(--text-main); font-weight: 500; }
+
+        .detail-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin: 1rem 0;
+        }
+
+        .view-toggle {
+            display: inline-flex;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 0.25rem 0 1rem;
+        }
+
+        .view-toggle button {
+            border: 0;
+            border-right: 1px solid var(--border);
+            background: rgba(15, 23, 42, 0.65);
+            color: var(--text-muted);
+            padding: 0.55rem 0.8rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .view-toggle button:last-child { border-right: 0; }
+
+        .view-toggle button.active {
+            background: rgba(59, 130, 246, 0.22);
+            color: var(--text-main);
+        }
+
+        .body {
+            white-space: pre-wrap;
+            overflow-wrap: break-word;
+            color: #e2e8f0;
+            line-height: 1.55;
+            font-size: 1rem;
+        }
+
+        .html-frame {
+            width: 100%;
+            min-height: 620px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: white;
+        }
+
+        .attachments {
+            margin: 1rem 0;
+            padding: 1rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .attachments h3 { font-size: 0.95rem; margin-bottom: 0.5rem; }
+        .attachments li { margin-left: 1.2rem; color: var(--text-muted); line-height: 1.5; }
+
+        .secret-review {
+            margin: 1rem 0;
+            padding: 1rem;
+            border: 1px solid rgba(248, 113, 113, 0.35);
+            border-radius: 8px;
+            background: rgba(127, 29, 29, 0.16);
+        }
+
+        .secret-review h3 { font-size: 0.95rem; margin-bottom: 0.5rem; color: #fecaca; }
+        .secret-review li { margin-left: 1.2rem; color: #fecaca; line-height: 1.5; }
+        .secret-review code { margin-top: 0.25rem; color: #fee2e2; }
+
+        .empty,
+        .error-state {
+            padding: 2rem;
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        .error-state h2 { color: var(--error); margin-bottom: 0.75rem; }
+        code {
+            display: inline-block;
+            margin-top: 1rem;
+            padding: 0.55rem 0.7rem;
+            background: rgba(15, 23, 42, 0.9);
+            color: var(--text-main);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            white-space: normal;
+        }
+
+        @media (max-width: 820px) {
+            body { padding: 1rem; }
+            header { display: block; }
+            .toolbar { margin-top: 1rem; }
+            .status-tabs,
+            .stats { margin-bottom: 0.75rem; }
+            .shell { grid-template-columns: 1fr; }
+            .pane,
+            .list,
+            .detail { min-height: auto; max-height: none; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div>
+            <h1>Offline Mail Viewer</h1>
+            <p class="subtle" id="fixture-meta">Loading fixture...</p>
+        </div>
+        <div class="toolbar">
+            <input id="search" type="search" placeholder="Search sender, subject, snippet, body" autocomplete="off">
+            <select id="mailbox-filter" aria-label="Mailbox filter">
+                <option value="all">All mailboxes</option>
+            </select>
+            <select id="source-filter" aria-label="Body source filter">
+                <option value="all">All sources</option>
+            </select>
+            <label><input id="attachments-only" type="checkbox"> Has attachments</label>
+            <label><input id="flagged-only" type="checkbox"> Flagged</label>
+            <label><input id="secrets-only" type="checkbox"> Secrets</label>
+            <button class="clear-btn" type="button" id="clear-filters">Clear</button>
+        </div>
+    </header>
+
+    <nav class="status-tabs" aria-label="Read status filter">
+        <button class="status-tab active" type="button" data-status="all">All <span id="count-all">0</span></button>
+        <button class="status-tab" type="button" data-status="unread">Unread <span id="count-unread">0</span></button>
+        <button class="status-tab" type="button" data-status="read">Read <span id="count-read">0</span></button>
+        <button class="status-tab" type="button" data-status="attachments">Attachments <span id="count-attachments">0</span></button>
+        <button class="status-tab" type="button" data-status="flagged">Flagged <span id="count-flagged">0</span></button>
+        <button class="status-tab" type="button" data-status="secrets">Secrets <span id="count-secrets">0</span></button>
+    </nav>
+
+    <section class="stats" id="stats"></section>
+
+    <main class="shell">
+        <section class="pane">
+            <div class="list" id="email-list"></div>
+        </section>
+        <section class="pane">
+            <div class="detail" id="email-detail">
+                <div class="empty">Select an email.</div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const listEl = document.getElementById('email-list');
+        const detailEl = document.getElementById('email-detail');
+        const metaEl = document.getElementById('fixture-meta');
+        const statsEl = document.getElementById('stats');
+        const searchEl = document.getElementById('search');
+        const attachmentsOnlyEl = document.getElementById('attachments-only');
+        const flaggedOnlyEl = document.getElementById('flagged-only');
+        const secretsOnlyEl = document.getElementById('secrets-only');
+        const mailboxFilterEl = document.getElementById('mailbox-filter');
+        const sourceFilterEl = document.getElementById('source-filter');
+        const clearFiltersEl = document.getElementById('clear-filters');
+        const statusTabs = [...document.querySelectorAll('.status-tab')];
+        let emails = [];
+        let selectedUid = null;
+        let statusFilter = 'all';
+
+        function escapeHTML(value) {
+            return String(value ?? '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[char]));
+        }
+
+        function searchableText(email) {
+            return String(email.search_text || [
+                email.sender,
+                email.subject,
+                email.snippet,
+                email.body,
+            ].join(' ')).toLowerCase();
+        }
+
+        function hasAttachments(email) {
+            return Number(email.attachment_count || 0) > 0 || (email.attachments || []).length > 0;
+        }
+
+        function isRead(email) {
+            if (typeof email.is_read === 'boolean') return email.is_read;
+            return (email.flags || []).some(flag => String(flag).toLowerCase().replace('\\', '') === 'seen');
+        }
+
+        function isFlagged(email) {
+            if (typeof email.is_flagged === 'boolean') return email.is_flagged;
+            return (email.flags || []).some(flag => String(flag).toLowerCase().replace('\\', '') === 'flagged');
+        }
+
+        function containsSecret(email) {
+            return Boolean(email.contains_secret || Number(email.secret_count || 0) > 0);
+        }
+
+        function filteredEmails() {
+            const query = searchEl.value.trim().toLowerCase();
+            const mailbox = mailboxFilterEl.value;
+            const source = sourceFilterEl.value;
+            return emails.filter(email => {
+                if (statusFilter === 'read' && !isRead(email)) return false;
+                if (statusFilter === 'unread' && isRead(email)) return false;
+                if (statusFilter === 'attachments' && !hasAttachments(email)) return false;
+                if (statusFilter === 'flagged' && !isFlagged(email)) return false;
+                if (statusFilter === 'secrets' && !containsSecret(email)) return false;
+                if (attachmentsOnlyEl.checked && !hasAttachments(email)) {
+                    return false;
+                }
+                if (flaggedOnlyEl.checked && !isFlagged(email)) return false;
+                if (secretsOnlyEl.checked && !containsSecret(email)) return false;
+                if (mailbox !== 'all' && (email.mailbox || '') !== mailbox) return false;
+                if (source !== 'all' && (email.body_source || '') !== source) return false;
+                return !query || searchableText(email).includes(query);
+            });
+        }
+
+        function updateCounts() {
+            const counts = {
+                all: emails.length,
+                unread: emails.filter(email => !isRead(email)).length,
+                read: emails.filter(isRead).length,
+                attachments: emails.filter(hasAttachments).length,
+                flagged: emails.filter(isFlagged).length,
+                secrets: emails.filter(containsSecret).length,
+            };
+
+            Object.entries(counts).forEach(([key, value]) => {
+                const el = document.getElementById(`count-${key}`);
+                if (el) el.textContent = value;
+            });
+
+            const visible = filteredEmails().length;
+            statsEl.innerHTML = `
+                <div class="stat"><strong>${visible}</strong> shown</div>
+                <div class="stat"><strong>${counts.unread}</strong> unread</div>
+                <div class="stat"><strong>${counts.read}</strong> read</div>
+                <div class="stat"><strong>${counts.attachments}</strong> with attachments</div>
+                <div class="stat"><strong>${counts.flagged}</strong> flagged</div>
+                <div class="stat"><strong>${counts.secrets}</strong> possible secrets</div>
+            `;
+        }
+
+        function populateSelect(selectEl, values, allLabel) {
+            const current = selectEl.value || 'all';
+            selectEl.innerHTML = `<option value="all">${escapeHTML(allLabel)}</option>`;
+            values.forEach(value => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = value;
+                selectEl.appendChild(option);
+            });
+            selectEl.value = values.includes(current) ? current : 'all';
+        }
+
+        function populateFilters() {
+            const mailboxes = [...new Set(emails.map(email => email.mailbox).filter(Boolean))].sort();
+            const sources = [...new Set(emails.map(email => email.body_source).filter(Boolean))].sort();
+            populateSelect(mailboxFilterEl, mailboxes, 'All mailboxes');
+            populateSelect(sourceFilterEl, sources, 'All sources');
+        }
+
+        function renderList() {
+            const visibleEmails = filteredEmails();
+            updateCounts();
+            listEl.innerHTML = '';
+            if (!visibleEmails.length) {
+                listEl.innerHTML = '<div class="empty">No matching emails.</div>';
+                return;
+            }
+
+            visibleEmails.forEach(email => {
+                const row = document.createElement('button');
+                row.type = 'button';
+                row.className = `email-row ${email.uid === selectedUid ? 'active' : ''} ${isRead(email) ? 'read' : 'unread'}`;
+                row.innerHTML = `
+                    <div class="row-top">
+                        <div class="sender">${escapeHTML(email.sender || 'Unknown sender')}</div>
+                        <div class="date">${escapeHTML(email.date_display || email.date || '')}</div>
+                    </div>
+                    <div class="subject">${escapeHTML(email.subject || '(No Subject)')}</div>
+                    <div class="snippet">${escapeHTML(email.snippet || '')}</div>
+                    ${isRead(email) ? '<span class="badge muted-badge">Read</span>' : '<span class="badge unread-badge">Unread</span>'}
+                    ${containsSecret(email) ? `<span class="badge secret-badge">Possible secret ${escapeHTML(email.secret_count || 1)}</span>` : ''}
+                    ${hasAttachments(email) ? `<span class="badge">Attachments ${escapeHTML(email.attachment_count || (email.attachments || []).length)}</span>` : ''}
+                    ${isFlagged(email) ? '<span class="badge flagged-badge">Flagged</span>' : ''}
+                `;
+                row.addEventListener('click', () => selectEmail(email.uid));
+                listEl.appendChild(row);
+            });
+        }
+
+        function renderError(data) {
+            const command = data.command ? `<code>${escapeHTML(data.command)}</code>` : '';
+            const html = `
+                <div class="error-state">
+                    <h2>Fixture unavailable</h2>
+                    <p>${escapeHTML(data.message || 'Offline fixture could not be loaded.')}</p>
+                    ${command}
+                </div>
+            `;
+            listEl.innerHTML = html;
+            detailEl.innerHTML = '<div class="empty">No fixture loaded.</div>';
+            metaEl.textContent = 'Fixture unavailable';
+        }
+
+        function renderDetail(email) {
+            const attachments = email.attachments || [];
+            const hasHTML = Boolean(email.has_html && email.html_body);
+            const secretFindings = email.secret_findings || [];
+            const attachmentMarkup = attachments.length ? `
+                <div class="attachments">
+                    <h3>Attachments</h3>
+                    <ul>
+                        ${attachments.map(item => `
+                            <li>${escapeHTML(item.filename || '(unnamed)')} ${escapeHTML(item.content_type || '')} ${item.size ? `(${escapeHTML(item.size)} bytes)` : ''}</li>
+                        `).join('')}
+                    </ul>
+                </div>
+            ` : '';
+
+            detailEl.innerHTML = `
+                <h2>${escapeHTML(email.subject || '(No Subject)')}</h2>
+                <div class="meta">
+                    <strong>From</strong><span>${escapeHTML(email.sender || 'Unknown sender')}</span>
+                    <strong>Date</strong><span>${escapeHTML(email.date_display || email.date || '')}</span>
+                    <strong>Mailbox</strong><span>${escapeHTML(email.mailbox || '')}</span>
+                    <strong>Status</strong><span>${isRead(email) ? 'Read' : 'Unread'}${isFlagged(email) ? ' · Flagged' : ''}</span>
+                    <strong>Secrets</strong><span>${containsSecret(email) ? `${escapeHTML(email.secret_count || secretFindings.length || 1)} possible finding(s)` : 'None detected'}</span>
+                    <strong>Source</strong><span>${escapeHTML(email.body_source || '')}</span>
+                    <strong>HTML</strong><span>${hasHTML ? 'Available' : 'Not available'}</span>
+                    <strong>Flags</strong><span>${escapeHTML((email.flags || []).join(', ') || 'None')}</span>
+                </div>
+                <div class="detail-actions">
+                    ${isRead(email) ? '<span class="badge muted-badge">Read</span>' : '<span class="badge unread-badge">Unread</span>'}
+                    ${containsSecret(email) ? `<span class="badge secret-badge">Possible secret ${escapeHTML(email.secret_count || secretFindings.length || 1)}</span>` : ''}
+                    ${isFlagged(email) ? '<span class="badge flagged-badge">Flagged</span>' : ''}
+                    ${hasAttachments(email) ? `<span class="badge">Attachments ${escapeHTML(email.attachment_count || attachments.length)}</span>` : ''}
+                    ${hasHTML ? '<span class="badge">HTML available</span>' : ''}
+                </div>
+                ${secretFindings.length ? `
+                    <div class="secret-review">
+                        <h3>Possible secrets</h3>
+                        <ul>
+                            ${secretFindings.map(finding => `
+                                <li>
+                                    ${escapeHTML(finding.label || finding.type || 'Possible secret')}
+                                    <br><code>${escapeHTML(finding.evidence || '')}</code>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                ` : ''}
+                ${attachmentMarkup}
+                ${hasHTML ? `
+                    <div class="view-toggle" role="group" aria-label="Body view">
+                        <button type="button" data-view="text">Text</button>
+                        <button type="button" class="active" data-view="html">HTML</button>
+                    </div>
+                ` : ''}
+                <div id="body-view"></div>
+            `;
+
+            const bodyView = detailEl.querySelector('#body-view');
+
+            function renderTextBody() {
+                bodyView.innerHTML = `<div class="body">${escapeHTML(email.body || 'No content.')}</div>`;
+            }
+
+            function renderHTMLBody() {
+                bodyView.innerHTML = '<iframe class="html-frame" sandbox="" referrerpolicy="no-referrer"></iframe>';
+                const frame = bodyView.querySelector('iframe');
+                frame.srcdoc = email.html_body || '<p>No HTML content.</p>';
+            }
+
+            if (hasHTML) {
+                renderHTMLBody();
+            } else {
+                renderTextBody();
+            }
+
+            detailEl.querySelectorAll('.view-toggle button').forEach(button => {
+                button.addEventListener('click', () => {
+                    detailEl.querySelectorAll('.view-toggle button').forEach(item => {
+                        item.classList.toggle('active', item === button);
+                    });
+                    if (button.dataset.view === 'html') {
+                        renderHTMLBody();
+                    } else {
+                        renderTextBody();
+                    }
+                });
+            });
+        }
+
+        async function selectEmail(uid) {
+            selectedUid = uid;
+            renderList();
+            detailEl.innerHTML = '<div class="empty">Loading...</div>';
+            const response = await fetch(`/api/offline/email/${encodeURIComponent(uid)}`);
+            const data = await response.json();
+            if (data.status === 'success') {
+                const index = emails.findIndex(email => email.uid === uid);
+                if (index !== -1) {
+                    emails[index] = data.data;
+                }
+                renderDetail(data.data);
+            } else {
+                detailEl.innerHTML = `<div class="error-state"><h2>Not found</h2><p>${escapeHTML(data.message)}</p></div>`;
+            }
+        }
+
+        async function loadEmails() {
+            try {
+                const response = await fetch('/api/offline/emails');
+                const data = await response.json();
+                if (data.status !== 'success') {
+                    renderError(data);
+                    return;
+                }
+
+                emails = data.data || [];
+                const manifest = data.manifest || {};
+                metaEl.textContent = `${manifest.count ?? emails.length} emails generated at ${manifest.generated_at || 'unknown time'}`;
+                populateFilters();
+                renderList();
+                if (emails.length) {
+                    selectEmail(emails[0].uid);
+                }
+            } catch (error) {
+                renderError({ message: 'Failed to connect to offline fixture API.' });
+            }
+        }
+
+        searchEl.addEventListener('input', renderList);
+        attachmentsOnlyEl.addEventListener('change', renderList);
+        flaggedOnlyEl.addEventListener('change', renderList);
+        secretsOnlyEl.addEventListener('change', renderList);
+        mailboxFilterEl.addEventListener('change', renderList);
+        sourceFilterEl.addEventListener('change', renderList);
+        clearFiltersEl.addEventListener('click', () => {
+            searchEl.value = '';
+            attachmentsOnlyEl.checked = false;
+            flaggedOnlyEl.checked = false;
+            secretsOnlyEl.checked = false;
+            mailboxFilterEl.value = 'all';
+            sourceFilterEl.value = 'all';
+            statusFilter = 'all';
+            statusTabs.forEach(tab => tab.classList.toggle('active', tab.dataset.status === 'all'));
+            renderList();
+        });
+        statusTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                statusFilter = tab.dataset.status;
+                statusTabs.forEach(item => item.classList.toggle('active', item === tab));
+                renderList();
+            });
+        });
+        loadEmails();
+    </script>
+</body>
+</html>

@@ -1,11 +1,14 @@
+import json
+import os
+from pathlib import Path
+
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from mail_fetch.main import get_last_10_emails, get_email_by_uid, get_all_uids
 from summarize_mail.main import get_summary, load_summaries
 from notify.main import send_to_discord
 from mail_fetch.config import validate_config
-import os
 import logging
 
 # Setup logging
@@ -16,6 +19,10 @@ logging.basicConfig(
 logger = logging.getLogger("app")
 
 app = FastAPI(title="Inbox Broadcast")
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+OFFLINE_FIXTURE_PATH = ROOT_DIR / "mail_harvest" / "sanitized_emails.json"
+OFFLINE_FIXTURE_COMMAND = "env/bin/python scripts/prepare_mail_fixture.py"
 
 # Setup Jinja2 templates directory
 templates_dir = os.path.join(os.path.dirname(__file__), "templates")
@@ -31,6 +38,84 @@ async def serve_ui(request: Request):
 async def email_detail(request: Request, uid: str):
     """Serve the detail page for a specific email."""
     return templates.TemplateResponse(request=request, name="detail.html", context={"uid": uid})
+
+@app.get("/offline", response_class=HTMLResponse)
+async def offline_mail_viewer(request: Request):
+    """Serve the offline fixture-backed email viewer."""
+    return templates.TemplateResponse(request=request, name="offline.html")
+
+
+def load_offline_fixture() -> dict:
+    if not OFFLINE_FIXTURE_PATH.exists():
+        raise FileNotFoundError(f"Offline fixture not found at {OFFLINE_FIXTURE_PATH}")
+
+    with OFFLINE_FIXTURE_PATH.open("r", encoding="utf-8") as f:
+        fixture = json.load(f)
+
+    if not isinstance(fixture, dict) or not isinstance(fixture.get("emails"), list):
+        raise ValueError(f"Offline fixture has an invalid shape: {OFFLINE_FIXTURE_PATH}")
+
+    return fixture
+
+
+def offline_fixture_error(message: str, status_code: int = 404) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "status": "error",
+            "message": message,
+            "command": OFFLINE_FIXTURE_COMMAND,
+        },
+    )
+
+
+@app.get("/api/offline/emails")
+async def api_get_offline_emails():
+    """Return offline fixture email list data without full bodies."""
+    try:
+        fixture = load_offline_fixture()
+    except FileNotFoundError:
+        return offline_fixture_error(
+            "Offline fixture not found. Run the fixture preparation command and refresh this page."
+        )
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        logger.exception("Offline fixture could not be loaded")
+        return offline_fixture_error(f"Offline fixture could not be loaded: {exc}", status_code=500)
+
+    emails = []
+    for email in fixture["emails"]:
+        if not isinstance(email, dict):
+            continue
+        emails.append({key: value for key, value in email.items() if key not in {"body", "html_body"}})
+
+    return {
+        "status": "success",
+        "manifest": fixture.get("manifest", {}),
+        "data": emails,
+    }
+
+
+@app.get("/api/offline/email/{uid}")
+async def api_get_offline_email(uid: str):
+    """Return a single offline fixture email including its normalized body."""
+    try:
+        fixture = load_offline_fixture()
+    except FileNotFoundError:
+        return offline_fixture_error(
+            "Offline fixture not found. Run the fixture preparation command and refresh this page."
+        )
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        logger.exception("Offline fixture could not be loaded")
+        return offline_fixture_error(f"Offline fixture could not be loaded: {exc}", status_code=500)
+
+    for email in fixture["emails"]:
+        if isinstance(email, dict) and str(email.get("uid")) == str(uid):
+            return {"status": "success", "data": email}
+
+    return JSONResponse(
+        status_code=404,
+        content={"status": "error", "message": f"Offline email UID {uid} not found."},
+    )
 
 @app.get("/api/emails")
 async def api_get_emails():

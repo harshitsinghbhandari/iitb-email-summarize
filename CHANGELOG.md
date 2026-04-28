@@ -7,6 +7,7 @@
 - Add an experimental deadline extraction module for testing Ollama function calling with `functiongemma:270m`.
 - Add a live deadline function-calling evaluation script with multiple sample emails.
 - Add a background deadline extraction daemon that scans recent email, stores deadlines, and posts new deadlines to Discord.
+- Add offline fixture scanning for likely passwords, OTPs, API keys, tokens, and private keys, with review flags in the offline mail viewer.
 
 ### Fixed
 - Load package-specific `.env` files reliably for mail fetching and Discord notifications.
