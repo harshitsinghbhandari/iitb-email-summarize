@@ -87,7 +87,9 @@ async def api_get_offline_emails():
     for email in fixture["emails"]:
         if not isinstance(email, dict):
             continue
-        emails.append({key: value for key, value in email.items() if key not in {"body", "html_body"}})
+        emails.append(
+            {key: value for key, value in email.items() if key not in {"body", "html_body"}}
+        )
 
     return {
         "status": "success",
@@ -118,16 +120,20 @@ async def api_get_offline_email(uid: str):
         content={"status": "error", "message": f"Offline email UID {uid} not found."},
     )
 
+
 @app.get("/api/emails")
 async def api_get_emails():
     """Fetch and return the last 10 emails as JSON."""
     # Validate config first
     missing = validate_config()
     if missing:
-        return {"status": "error", "message": f"Missing configuration: {', '.join(missing)}. Please check your .env file."}
+        return {
+            "status": "error",
+            "message": f"Missing configuration: {', '.join(missing)}. Please check your .env file.",
+        }
 
     emails = get_last_10_emails()
-    
+
     # If emails contains an error dictionary, return it
     if isinstance(emails, dict) and "error" in emails:
         return emails
@@ -139,35 +145,38 @@ async def api_get_emails():
 
     return {"status": "success", "data": emails}
 
+
 @app.get("/api/email/{uid}/summary")
 async def api_get_summary(uid: str):
     """Fetch email, summarize it, and return summary."""
     email = get_email_by_uid(uid)
-    
+
     if isinstance(email, dict) and "error" in email:
         return {"status": "error", "message": email["error"]}
-    
+
     if email:
-        summary = get_summary(uid, email['body'])
-        # If summary is an error message (e.g., Ollama offline), it's still returned as a summary 
+        summary = get_summary(uid, email["body"])
+        # If summary is an error message (e.g., Ollama offline), it's still returned as a summary
         # text to be rendered in the UI, rather than a 500 error.
         return {"status": "success", "summary": summary}
-    
+
     return {"status": "error", "message": "Email not found"}
+
 
 @app.get("/api/email/{uid}")
 async def api_get_single_email(uid: str):
     """Fetch and return a single email by UID including summary."""
     email = get_email_by_uid(uid)
-    
+
     if isinstance(email, dict) and "error" in email:
         return {"status": "error", "message": email["error"]}
-        
+
     if email:
-        email["summary"] = get_summary(uid, email['body'])
+        email["summary"] = get_summary(uid, email["body"])
         return {"status": "success", "data": email}
-    
+
     return {"status": "error", "message": "Email not found"}
+
 
 @app.post("/api/email/{uid}/discord")
 async def api_send_to_discord(uid: str):
@@ -175,12 +184,12 @@ async def api_send_to_discord(uid: str):
     email = get_email_by_uid(uid)
     if isinstance(email, dict) and "error" in email:
         return {"status": "error", "message": email["error"]}
-        
+
     if not email:
         return {"status": "error", "message": "Email not found"}
 
-    summary = get_summary(uid, email['body'])
-    
+    summary = get_summary(uid, email["body"])
+
     # Don't send summaries that are actually error messages
     if "offline" in summary.lower() or "error" in summary.lower():
         return {"status": "error", "message": f"Cannot send to Discord: {summary}"}
@@ -190,6 +199,7 @@ async def api_send_to_discord(uid: str):
     if success:
         return {"status": "success", "message": message}
     return {"status": "error", "message": message}
+
 
 @app.get("/api/summarize-pending")
 async def api_summarize_pending():
@@ -205,10 +215,14 @@ async def api_summarize_pending():
         for uid in pending_uids:
             email = get_email_by_uid(uid)
             if email and not (isinstance(email, dict) and "error" in email):
-                get_summary(uid, email['body'])
+                get_summary(uid, email["body"])
                 count += 1
 
-        return {"status": "success", "summarized_count": count, "total_pending_before": len(pending_uids)}
+        return {
+            "status": "success",
+            "summarized_count": count,
+            "total_pending_before": len(pending_uids),
+        }
     except Exception as e:
         logger.exception("Batch summarization failed")
         return {"status": "error", "message": str(e)}

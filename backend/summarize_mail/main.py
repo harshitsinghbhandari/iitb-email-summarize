@@ -12,9 +12,11 @@ logger = logging.getLogger("summarize_mail")
 ROOT_DIR = Path(__file__).resolve().parents[2]
 SUMMARIES_FILE = Path(os.getenv("SUMMARIES_FILE", ROOT_DIR / "summaries.json"))
 
+
 def get_prompt_hash():
     """Computes a hash of the current system prompt."""
     return hashlib.sha256(SYSTEM_PROMPT.encode()).hexdigest()
+
 
 def load_summaries():
     """
@@ -41,6 +43,7 @@ def load_summaries():
         logger.error(f"Error loading summaries: {e}")
         return {"prompt_hash": get_prompt_hash(), "summaries": {}}
 
+
 def save_summaries(data):
     """Saves the cache data (including prompt hash) to the JSON file."""
     try:
@@ -50,6 +53,7 @@ def save_summaries(data):
             json.dump(data, f, indent=2)
     except Exception as e:
         logger.error(f"Error saving summaries: {e}")
+
 
 def summarize_content(content):
     """
@@ -66,7 +70,7 @@ def summarize_content(content):
         "model": MODEL,
         "prompt": f"Current Time: {now}\n\n{SYSTEM_PROMPT}\n\nContent to summarize:\n{content}\n\nSummary:",
         "stream": False,
-        "think": False
+        "think": False,
     }
 
     try:
@@ -82,6 +86,7 @@ def summarize_content(content):
         logger.error(f"Unexpected error during summarization: {e}")
         return f"An unexpected error occurred: {str(e)}"
 
+
 def get_summary(uid, body):
     """
     Returns the summary for a given email UID.
@@ -95,13 +100,14 @@ def get_summary(uid, body):
         return summaries[uid_str]
 
     summary = summarize_content(body)
-    
+
     # Only cache successful summaries, not error messages
     if "offline" not in summary.lower() and "error" not in summary.lower():
         summaries[uid_str] = summary
         save_summaries(data)
-        
+
     return summary
+
 
 if __name__ == "__main__":
     test_text = "The quick brown fox jumps over the lazy dog many times to demonstrate agility."

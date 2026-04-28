@@ -137,11 +137,21 @@ def parse_args() -> argparse.Namespace:
         description="Fetch recent IMAP emails in small randomized batches for offline testing."
     )
     parser.add_argument("--target", type=int, default=100, help="Number of newest UIDs to harvest.")
-    parser.add_argument("--batch-size", type=int, default=10, help="Full emails to fetch per batch.")
-    parser.add_argument("--base-delay", type=float, default=30, help="Base delay between batches in seconds.")
-    parser.add_argument("--jitter", type=float, default=20, help="Plus/minus randomized delay in seconds.")
-    parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR, help="Directory for harvested data.")
-    parser.add_argument("--no-sleep", action="store_true", help="Disable sleeping between batches for tests.")
+    parser.add_argument(
+        "--batch-size", type=int, default=10, help="Full emails to fetch per batch."
+    )
+    parser.add_argument(
+        "--base-delay", type=float, default=30, help="Base delay between batches in seconds."
+    )
+    parser.add_argument(
+        "--jitter", type=float, default=20, help="Plus/minus randomized delay in seconds."
+    )
+    parser.add_argument(
+        "--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR, help="Directory for harvested data."
+    )
+    parser.add_argument(
+        "--no-sleep", action="store_true", help="Disable sleeping between batches for tests."
+    )
     return parser.parse_args()
 
 
@@ -227,7 +237,9 @@ def main() -> int:
                 print(f"  saved UID {record['uid']}: {record['subject'][:90]}")
 
             fetched_uids = {str(message.uid) for message in messages}
-            failed.extend(uid for uid in batch_uids if uid not in fetched_uids and uid not in failed)
+            failed.extend(
+                uid for uid in batch_uids if uid not in fetched_uids and uid not in failed
+            )
             state["batches"].append(
                 {
                     "batch_index": batch_index,

@@ -12,6 +12,5 @@ if str(ROOT_DIR) not in sys.path:
 
 from deadline_tools.daemon import main  # noqa: E402
 
-
 if __name__ == "__main__":
     raise SystemExit(main())

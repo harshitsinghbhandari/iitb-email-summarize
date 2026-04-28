@@ -348,7 +348,9 @@ def deduplicate_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if uid is None:
             continue
         uid_key = str(uid)
-        harvested_at = timestamp_for_sort(record, ("fetched_at", "harvested_at", "created_at", "date"))
+        harvested_at = timestamp_for_sort(
+            record, ("fetched_at", "harvested_at", "created_at", "date")
+        )
         current = by_uid.get(uid_key)
         if current is None or (harvested_at, index) >= (current[0], current[1]):
             by_uid[uid_key] = (harvested_at, index, record)
@@ -387,9 +389,18 @@ def write_fixture(source_file: Path, output_file: Path) -> dict[str, Any]:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Normalize harvested mail JSONL into an offline UI fixture.")
-    parser.add_argument("--source", type=Path, default=DEFAULT_SOURCE_FILE, help="Input harvested JSONL path.")
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT_FILE, help="Output sanitized JSON fixture path.")
+    parser = argparse.ArgumentParser(
+        description="Normalize harvested mail JSONL into an offline UI fixture."
+    )
+    parser.add_argument(
+        "--source", type=Path, default=DEFAULT_SOURCE_FILE, help="Input harvested JSONL path."
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=DEFAULT_OUTPUT_FILE,
+        help="Output sanitized JSON fixture path.",
+    )
     return parser.parse_args()
 
 

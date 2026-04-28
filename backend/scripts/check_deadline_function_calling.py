@@ -10,7 +10,10 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from deadline_tools.function_calling import DEADLINE_FUNCTION_MODEL, call_deadline_tool  # noqa: E402
+from deadline_tools.function_calling import (
+    DEADLINE_FUNCTION_MODEL,
+    call_deadline_tool,
+)  # noqa: E402
 
 SAMPLE_EMAIL = """
 Subject: CS 101 Assignment 4

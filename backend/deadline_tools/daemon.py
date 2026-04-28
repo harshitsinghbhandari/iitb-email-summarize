@@ -35,7 +35,9 @@ def deadline_to_dict(deadline: Any) -> dict[str, Any]:
     }
 
 
-def scan_once(limit: int = EMAILS_TO_FETCH, force: bool = False, post_to_discord: bool = True) -> dict[str, int]:
+def scan_once(
+    limit: int = EMAILS_TO_FETCH, force: bool = False, post_to_discord: bool = True
+) -> dict[str, int]:
     """Scan recent email once and extract deadlines for unprocessed messages."""
     missing = validate_config()
     if missing:
@@ -96,7 +98,9 @@ def scan_once(limit: int = EMAILS_TO_FETCH, force: bool = False, post_to_discord
         stats["processed"] += 1
         if deadline_data:
             stats["deadlines"] += 1
-            logger.info("Extracted deadline for UID %s: %s due %s", uid, deadline.title, deadline.due_date)
+            logger.info(
+                "Extracted deadline for UID %s: %s due %s", uid, deadline.title, deadline.due_date
+            )
             if post_to_discord and deadline_record:
                 success, message = send_deadline_to_discord(deadline_record)
                 mark_deadline_discord_result(store, uid=uid, success=success, message=message)
@@ -106,14 +110,18 @@ def scan_once(limit: int = EMAILS_TO_FETCH, force: bool = False, post_to_discord
                     logger.info("Posted deadline for UID %s to Discord", uid)
                 else:
                     stats["discord_failed"] += 1
-                    logger.warning("Failed to post deadline for UID %s to Discord: %s", uid, message)
+                    logger.warning(
+                        "Failed to post deadline for UID %s to Discord: %s", uid, message
+                    )
         else:
             logger.info("No deadline found for UID %s", uid)
 
     return stats
 
 
-def run_daemon(interval_seconds: int, limit: int, force: bool = False, post_to_discord: bool = True) -> None:
+def run_daemon(
+    interval_seconds: int, limit: int, force: bool = False, post_to_discord: bool = True
+) -> None:
     """Run deadline extraction forever."""
     logger.info("Deadline daemon started. Store: %s", DEADLINES_FILE)
     logger.info("Model: %s", DEADLINE_FUNCTION_MODEL)
@@ -137,15 +145,25 @@ def run_daemon(interval_seconds: int, limit: int, force: bool = False, post_to_d
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Extract email deadlines in the background.")
     parser.add_argument("--once", action="store_true", help="Run one scan and exit.")
-    parser.add_argument("--force", action="store_true", help="Reprocess emails even if their UID was seen.")
-    parser.add_argument("--no-discord", action="store_true", help="Do not post extracted deadlines to Discord.")
-    parser.add_argument("--limit", type=int, default=EMAILS_TO_FETCH, help="Number of recent emails to scan.")
-    parser.add_argument("--interval", type=int, default=300, help="Seconds between scans in daemon mode.")
+    parser.add_argument(
+        "--force", action="store_true", help="Reprocess emails even if their UID was seen."
+    )
+    parser.add_argument(
+        "--no-discord", action="store_true", help="Do not post extracted deadlines to Discord."
+    )
+    parser.add_argument(
+        "--limit", type=int, default=EMAILS_TO_FETCH, help="Number of recent emails to scan."
+    )
+    parser.add_argument(
+        "--interval", type=int, default=300, help="Seconds between scans in daemon mode."
+    )
     return parser
 
 
 def main() -> int:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
     args = build_parser().parse_args()
 
     if args.once:

@@ -53,7 +53,9 @@ def test_scan_once_extracts_deadline_and_posts_to_discord():
         patch("deadline_tools.daemon.get_last_10_emails", return_value=[{"uid": "202"}]),
         patch("deadline_tools.daemon.get_email_by_uid", return_value=email),
         patch("deadline_tools.daemon.call_deadline_tool", return_value=deadline),
-        patch("deadline_tools.daemon.send_deadline_to_discord", return_value=(True, "sent")) as send_deadline,
+        patch(
+            "deadline_tools.daemon.send_deadline_to_discord", return_value=(True, "sent")
+        ) as send_deadline,
     ):
         stats = scan_once(limit=10)
 

@@ -23,7 +23,9 @@ def write_fixture(path):
                 "snippet": "Snippet two",
                 "body": "Full body two",
                 "body_source": "text",
-                "attachments": [{"filename": "file.pdf", "content_type": "application/pdf", "size": 123}],
+                "attachments": [
+                    {"filename": "file.pdf", "content_type": "application/pdf", "size": 123}
+                ],
                 "flags": [],
                 "headers_subset": {"message-id": ["abc"]},
             },

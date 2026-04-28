@@ -16,6 +16,7 @@ load_dotenv(PACKAGE_DIR / ".env", override=True)
 # Discord Webhook URL from environment variables
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 
+
 def send_to_discord(email_data, summary):
     """
     Sends an email summary to a Discord channel via webhook.
@@ -28,27 +29,17 @@ def send_to_discord(email_data, summary):
         "embeds": [
             {
                 "title": f"📧 New Email Summary: {email_data.get('subject', '(No Subject)')}",
-                "color": 3447003, # Blue color
+                "color": 3447003,  # Blue color
                 "fields": [
-                    {
-                        "name": "From",
-                        "value": email_data.get('sender', 'Unknown'),
-                        "inline": True
-                    },
-                    {
-                        "name": "Date",
-                        "value": email_data.get('date', 'Unknown'),
-                        "inline": True
-                    },
+                    {"name": "From", "value": email_data.get("sender", "Unknown"), "inline": True},
+                    {"name": "Date", "value": email_data.get("date", "Unknown"), "inline": True},
                     {
                         "name": "Summary",
                         "value": summary or "No summary available.",
-                        "inline": False
-                    }
+                        "inline": False,
+                    },
                 ],
-                "footer": {
-                    "text": "Inbox Broadcast AI"
-                }
+                "footer": {"text": "Inbox Broadcast AI"},
             }
         ]
     }
@@ -97,7 +88,9 @@ def send_deadline_to_discord(deadline_data):
                     },
                     {
                         "name": "Evidence",
-                        "value": deadline_data.get("source_text", "No source text captured.")[:1000],
+                        "value": deadline_data.get("source_text", "No source text captured.")[
+                            :1000
+                        ],
                         "inline": False,
                     },
                 ],
@@ -119,6 +112,7 @@ def send_deadline_to_discord(deadline_data):
     except Exception as e:
         logger.error(f"Error sending deadline to Discord: {e}")
         return False, f"Failed to send deadline to Discord: {str(e)}"
+
 
 if __name__ == "__main__":
     test_email = {"subject": "Test Subject", "sender": "test@example.com", "date": "Today"}
