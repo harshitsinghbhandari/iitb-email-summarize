@@ -4,12 +4,9 @@ Vite + React + TypeScript SPA that talks to the FastAPI backend over JSON.
 
 ## Pages
 
-- `/` — Inbox: list of recent emails with click-to-summarize (`/api/emails`,
-  `/api/email/:uid/summary`).
-- `/email/:uid` — full email view with AI summary and "Send to Discord"
-  (`/api/email/:uid`, `/api/email/:uid/discord`).
-- `/offline` — browse the harvested fixture
-  (`/api/offline/emails`, `/api/offline/email/:uid`).
+- `/` — offline fixture mail viewer with search, filters, HTML/text body modes,
+  AI summary, and Discord posting.
+- `/offline` — same offline fixture viewer route.
 
 ## Local development
 

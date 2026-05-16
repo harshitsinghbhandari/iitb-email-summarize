@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import { api, EmailDetailData, EmailListItem } from "../lib/api";
 
@@ -62,6 +64,12 @@ export default function Offline() {
   const [mailboxFilter, setMailboxFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [bodyView, setBodyView] = useState<BodyView>("html");
+  const [summary, setSummary] = useState("");
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [discordSending, setDiscordSending] = useState(false);
+  const [actionMessage, setActionMessage] = useState<{ kind: "info" | "error"; text: string } | null>(
+    null,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -151,6 +159,52 @@ export default function Offline() {
     setStatusFilter("all");
     setMailboxFilter("all");
     setSourceFilter("all");
+  }
+
+  function selectEmail(uid: string) {
+    setDetail(null);
+    setSummary("");
+    setActionMessage(null);
+    setSummaryLoading(false);
+    setDiscordSending(false);
+    setSelectedUid(uid);
+  }
+
+  async function summarizeSelected() {
+    if (!detail) return;
+    setSummaryLoading(true);
+    setActionMessage(null);
+    try {
+      const data = await api.offlineSummary(detail.uid);
+      if (data.status === "success" && data.summary) {
+        setSummary(data.summary);
+        setActionMessage({ kind: "info", text: "Summary ready." });
+      } else {
+        setActionMessage({ kind: "error", text: data.message ?? "Summary failed." });
+      }
+    } catch {
+      setActionMessage({ kind: "error", text: "Could not connect to the summary API." });
+    } finally {
+      setSummaryLoading(false);
+    }
+  }
+
+  async function postSelectedToDiscord() {
+    if (!detail) return;
+    setDiscordSending(true);
+    setActionMessage(null);
+    try {
+      const data = await api.sendOfflineDiscord(detail.uid);
+      if (data.summary) setSummary(data.summary);
+      setActionMessage({
+        kind: data.status === "success" ? "info" : "error",
+        text: data.message ?? (data.status === "success" ? "Posted to Discord." : "Discord post failed."),
+      });
+    } catch {
+      setActionMessage({ kind: "error", text: "Could not connect to the Discord API." });
+    } finally {
+      setDiscordSending(false);
+    }
   }
 
   if (error) {
@@ -257,10 +311,7 @@ export default function Offline() {
               <button
                 key={email.uid}
                 type="button"
-                onClick={() => {
-                  setDetail(null);
-                  setSelectedUid(email.uid);
-                }}
+                onClick={() => selectEmail(email.uid)}
                 className={`mail-row ${active ? "active" : ""} ${unread ? "unread" : ""}`}
               >
                 <span className="mail-avatar">{initials(email.sender)}</span>
@@ -354,6 +405,47 @@ export default function Offline() {
                 <span className="mail-tag secret">Possible secrets: {detail.secret_count ?? 1}</span>
               )}
             </section>
+
+            <section className="mail-inline-actions" aria-label="Message actions">
+              <div className="mail-inline-action-copy">
+                <span className="mail-action-kicker">AI actions</span>
+                <strong>Process this message</strong>
+              </div>
+              <div className="mail-inline-action-buttons">
+                <button
+                  type="button"
+                  className="mail-primary-action"
+                  onClick={summarizeSelected}
+                  disabled={summaryLoading || discordSending}
+                >
+                  {summaryLoading ? "Summarizing..." : "Summarize"}
+                </button>
+                <button
+                  type="button"
+                  className="mail-secondary-action"
+                  onClick={postSelectedToDiscord}
+                  disabled={summaryLoading || discordSending}
+                >
+                  {discordSending ? "Posting..." : "Post to Discord"}
+                </button>
+              </div>
+              {actionMessage && (
+                <p className={`mail-action-status ${actionMessage.kind}`}>{actionMessage.text}</p>
+              )}
+            </section>
+
+            {(summary || summaryLoading) && (
+              <section className="mail-inline-summary">
+                <span className="mail-action-kicker">Summary</span>
+                {summary ? (
+                  <div className="mail-summary-rendered">
+                    <Markdown remarkPlugins={[remarkGfm]}>{summary}</Markdown>
+                  </div>
+                ) : (
+                  <p className="mail-summary-placeholder">Generating summary...</p>
+                )}
+              </section>
+            )}
 
             {containsSecret(detail) && (
               <section className="mail-warning-panel">

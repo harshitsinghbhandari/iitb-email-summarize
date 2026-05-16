@@ -16,6 +16,16 @@ load_dotenv(PACKAGE_DIR / ".env", override=True)
 # Discord Webhook URL from environment variables
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 
+DISCORD_EMBED_TITLE_LIMIT = 256
+DISCORD_EMBED_FIELD_VALUE_LIMIT = 1024
+
+
+def discord_text(value, fallback="Unknown", limit=DISCORD_EMBED_FIELD_VALUE_LIMIT):
+    text = str(value or fallback).strip() or fallback
+    if len(text) <= limit:
+        return text
+    return f"{text[: limit - 3].rstrip()}..."
+
 
 def send_to_discord(email_data, summary):
     """
@@ -28,14 +38,25 @@ def send_to_discord(email_data, summary):
     payload = {
         "embeds": [
             {
-                "title": f"📧 New Email Summary: {email_data.get('subject', '(No Subject)')}",
+                "title": discord_text(
+                    f"📧 New Email Summary: {email_data.get('subject', '(No Subject)')}",
+                    limit=DISCORD_EMBED_TITLE_LIMIT,
+                ),
                 "color": 3447003,  # Blue color
                 "fields": [
-                    {"name": "From", "value": email_data.get("sender", "Unknown"), "inline": True},
-                    {"name": "Date", "value": email_data.get("date", "Unknown"), "inline": True},
+                    {
+                        "name": "From",
+                        "value": discord_text(email_data.get("sender", "Unknown")),
+                        "inline": True,
+                    },
+                    {
+                        "name": "Date",
+                        "value": discord_text(email_data.get("date", "Unknown")),
+                        "inline": True,
+                    },
                     {
                         "name": "Summary",
-                        "value": summary or "No summary available.",
+                        "value": discord_text(summary, fallback="No summary available."),
                         "inline": False,
                     },
                 ],

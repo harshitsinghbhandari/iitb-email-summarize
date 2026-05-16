@@ -97,3 +97,45 @@ def test_unknown_offline_uid_returns_not_found(tmp_path, monkeypatch):
     assert response.status_code == 404
     assert data["status"] == "error"
     assert "not found" in data["message"]
+
+
+def test_offline_summary_uses_fixture_body_without_imap(tmp_path, monkeypatch):
+    fixture_path = tmp_path / "sanitized_emails.json"
+    write_fixture(fixture_path)
+    monkeypatch.setattr(app_main, "OFFLINE_FIXTURE_PATH", fixture_path)
+
+    calls = []
+
+    def fake_get_summary(uid, body):
+        calls.append((uid, body))
+        return "Offline summary"
+
+    monkeypatch.setattr(app_main, "get_summary", fake_get_summary)
+
+    data = asyncio.run(app_main.api_get_offline_summary("2"))
+
+    assert data["status"] == "success"
+    assert data["summary"] == "Offline summary"
+    assert calls == [("2", "Full body two")]
+
+
+def test_offline_discord_posts_fixture_summary(tmp_path, monkeypatch):
+    fixture_path = tmp_path / "sanitized_emails.json"
+    write_fixture(fixture_path)
+    monkeypatch.setattr(app_main, "OFFLINE_FIXTURE_PATH", fixture_path)
+    monkeypatch.setattr(app_main, "get_summary", lambda uid, body: "Offline summary")
+
+    sent = []
+
+    def fake_send_to_discord(email, summary):
+        sent.append((email["uid"], summary))
+        return True, "sent"
+
+    monkeypatch.setattr(app_main, "send_to_discord", fake_send_to_discord)
+
+    data = asyncio.run(app_main.api_send_offline_to_discord("2"))
+
+    assert data["status"] == "success"
+    assert data["message"] == "sent"
+    assert data["summary"] == "Offline summary"
+    assert sent == [("2", "Offline summary")]

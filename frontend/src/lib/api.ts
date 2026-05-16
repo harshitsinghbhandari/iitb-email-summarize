@@ -90,4 +90,13 @@ export const api = {
     getJson<OfflineEnvelope<EmailDetailData>>(
       `/api/offline/email/${encodeURIComponent(uid)}`,
     ),
+  offlineSummary: (uid: string) =>
+    getJson<{ status: string; summary?: string; message?: string }>(
+      `/api/offline/email/${encodeURIComponent(uid)}/summary`,
+    ),
+  sendOfflineDiscord: (uid: string) =>
+    getJson<{ status: string; message?: string; summary?: string }>(
+      `/api/offline/email/${encodeURIComponent(uid)}/discord`,
+      { method: "POST" },
+    ),
 };

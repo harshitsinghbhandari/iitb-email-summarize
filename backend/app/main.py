@@ -64,6 +64,14 @@ def load_offline_fixture() -> dict:
     return fixture
 
 
+def get_offline_email_from_fixture(uid: str) -> dict | None:
+    fixture = load_offline_fixture()
+    for email in fixture["emails"]:
+        if isinstance(email, dict) and str(email.get("uid")) == str(uid):
+            return email
+    return None
+
+
 def offline_fixture_error(message: str, status_code: int = 404) -> JSONResponse:
     return JSONResponse(
         status_code=status_code,
@@ -72,6 +80,15 @@ def offline_fixture_error(message: str, status_code: int = 404) -> JSONResponse:
             "message": message,
             "command": OFFLINE_FIXTURE_COMMAND,
         },
+    )
+
+
+def is_summary_failure(summary: str) -> bool:
+    normalized = summary.lower()
+    return (
+        "ai summarizer is offline" in normalized
+        or "ai summarizer error" in normalized
+        or "an unexpected error occurred" in normalized
     )
 
 
@@ -107,7 +124,7 @@ async def api_get_offline_emails():
 async def api_get_offline_email(uid: str):
     """Return a single offline fixture email including its normalized body."""
     try:
-        fixture = load_offline_fixture()
+        email = get_offline_email_from_fixture(uid)
     except FileNotFoundError:
         return offline_fixture_error(
             "Offline fixture not found. Run the fixture preparation command and refresh this page."
@@ -116,14 +133,65 @@ async def api_get_offline_email(uid: str):
         logger.exception("Offline fixture could not be loaded")
         return offline_fixture_error(f"Offline fixture could not be loaded: {exc}", status_code=500)
 
-    for email in fixture["emails"]:
-        if isinstance(email, dict) and str(email.get("uid")) == str(uid):
-            return {"status": "success", "data": email}
+    if email:
+        return {"status": "success", "data": email}
 
     return JSONResponse(
         status_code=404,
         content={"status": "error", "message": f"Offline email UID {uid} not found."},
     )
+
+
+@app.get("/api/offline/email/{uid}/summary")
+async def api_get_offline_summary(uid: str):
+    """Summarize a fixture email without touching IMAP."""
+    try:
+        email = get_offline_email_from_fixture(uid)
+    except FileNotFoundError:
+        return offline_fixture_error(
+            "Offline fixture not found. Run the fixture preparation command and refresh this page."
+        )
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        logger.exception("Offline fixture could not be loaded")
+        return offline_fixture_error(f"Offline fixture could not be loaded: {exc}", status_code=500)
+
+    if not email:
+        return JSONResponse(
+            status_code=404,
+            content={"status": "error", "message": f"Offline email UID {uid} not found."},
+        )
+
+    summary = get_summary(uid, email.get("body", ""))
+    return {"status": "success", "summary": summary}
+
+
+@app.post("/api/offline/email/{uid}/discord")
+async def api_send_offline_to_discord(uid: str):
+    """Send a fixture email summary to Discord without touching IMAP."""
+    try:
+        email = get_offline_email_from_fixture(uid)
+    except FileNotFoundError:
+        return offline_fixture_error(
+            "Offline fixture not found. Run the fixture preparation command and refresh this page."
+        )
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        logger.exception("Offline fixture could not be loaded")
+        return offline_fixture_error(f"Offline fixture could not be loaded: {exc}", status_code=500)
+
+    if not email:
+        return JSONResponse(
+            status_code=404,
+            content={"status": "error", "message": f"Offline email UID {uid} not found."},
+        )
+
+    summary = get_summary(uid, email.get("body", ""))
+    if is_summary_failure(summary):
+        return {"status": "error", "message": f"Cannot send to Discord: {summary}"}
+
+    success, message = send_to_discord(email, summary)
+    if success:
+        return {"status": "success", "message": message, "summary": summary}
+    return {"status": "error", "message": message, "summary": summary}
 
 
 @app.get("/api/emails")
@@ -196,7 +264,7 @@ async def api_send_to_discord(uid: str):
     summary = get_summary(uid, email["body"])
 
     # Don't send summaries that are actually error messages
-    if "offline" in summary.lower() or "error" in summary.lower():
+    if is_summary_failure(summary):
         return {"status": "error", "message": f"Cannot send to Discord: {summary}"}
 
     success, message = send_to_discord(email, summary)
