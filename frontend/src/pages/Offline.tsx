@@ -67,6 +67,10 @@ export default function Offline() {
   const [summary, setSummary] = useState("");
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [discordSending, setDiscordSending] = useState(false);
+  const [fetchingMore, setFetchingMore] = useState(false);
+  const [fetchMessage, setFetchMessage] = useState<{ kind: "info" | "error"; text: string } | null>(
+    null,
+  );
   const [actionMessage, setActionMessage] = useState<{ kind: "info" | "error"; text: string } | null>(
     null,
   );
@@ -161,6 +165,19 @@ export default function Offline() {
     setSourceFilter("all");
   }
 
+  function applyFixtureData(data: EmailListItem[], manifest: FixtureState["manifest"] = {}) {
+    setFixture({ emails: data, manifest });
+    if (!data.length) {
+      setSelectedUid(null);
+      setDetail(null);
+      return;
+    }
+    const nextUid =
+      selectedUid && data.some((email) => email.uid === selectedUid) ? selectedUid : data[0].uid;
+    if (nextUid !== selectedUid) setDetail(null);
+    setSelectedUid(nextUid);
+  }
+
   function selectEmail(uid: string) {
     setDetail(null);
     setSummary("");
@@ -168,6 +185,28 @@ export default function Offline() {
     setSummaryLoading(false);
     setDiscordSending(false);
     setSelectedUid(uid);
+  }
+
+  async function fetchMoreEmails(count: number) {
+    setFetchingMore(true);
+    setFetchMessage(null);
+    try {
+      const data = await api.offlineFetchMore(count);
+      if (data.status === "success" && data.data) {
+        applyFixtureData(data.data, data.manifest ?? {});
+        setError(null);
+        setFetchMessage({
+          kind: "info",
+          text: data.message ?? `Fetched ${data.fetched ?? 0} new email(s).`,
+        });
+      } else {
+        setFetchMessage({ kind: "error", text: data.message ?? "Could not fetch more emails." });
+      }
+    } catch {
+      setFetchMessage({ kind: "error", text: "Could not connect to the fetch API." });
+    } finally {
+      setFetchingMore(false);
+    }
   }
 
   async function summarizeSelected() {
@@ -227,6 +266,19 @@ export default function Offline() {
             <span className="mail-brand-kicker">Inbox Broadcast</span>
             <h1>Offline Mail</h1>
           </div>
+        </div>
+
+        <div className="mail-fetch-panel" aria-label="Fetch more email">
+          <span className="mail-fetch-label">Mailbox actions</span>
+          <div className="mail-fetch-buttons">
+            <button type="button" onClick={() => fetchMoreEmails(25)} disabled={fetchingMore}>
+              {fetchingMore ? "Fetching..." : "Fetch 25"}
+            </button>
+            <button type="button" onClick={() => fetchMoreEmails(100)} disabled={fetchingMore}>
+              Fetch 100
+            </button>
+          </div>
+          {fetchMessage && <p className={`mail-fetch-status ${fetchMessage.kind}`}>{fetchMessage.text}</p>}
         </div>
 
         <nav className="mail-nav-list">

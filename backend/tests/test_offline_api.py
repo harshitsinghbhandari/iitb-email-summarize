@@ -139,3 +139,56 @@ def test_offline_discord_posts_fixture_summary(tmp_path, monkeypatch):
     assert data["message"] == "sent"
     assert data["summary"] == "Offline summary"
     assert sent == [("2", "Offline summary")]
+
+
+def test_offline_fetch_more_harvests_and_returns_refreshed_fixture(tmp_path, monkeypatch):
+    fixture_path = tmp_path / "sanitized_emails.json"
+    records_path = tmp_path / "emails.jsonl"
+    write_fixture(fixture_path)
+    monkeypatch.setattr(app_main, "OFFLINE_FIXTURE_PATH", fixture_path)
+    monkeypatch.setattr(app_main, "MAIL_RECORDS_FILE", records_path)
+    monkeypatch.setattr(app_main, "MAIL_HARVEST_DIR", tmp_path)
+
+    harvest_calls = []
+
+    def fake_harvest_recent_mail(**kwargs):
+        harvest_calls.append(kwargs)
+        return {"fetched": 1}
+
+    def fake_write_fixture(source_file, output_file):
+        assert source_file == records_path
+        assert output_file == fixture_path
+        return {
+            "manifest": {
+                "generated_at": "2026-04-28T01:00:00+00:00",
+                "count": 3,
+                "uids": ["3", "2", "1"],
+            },
+            "emails": [
+                {
+                    "uid": "3",
+                    "subject": "Fresh",
+                    "sender": "fresh@example.com",
+                    "date": "2026-04-29T09:00:00+00:00",
+                    "snippet": "Fresh snippet",
+                    "body": "Fresh body",
+                    "body_source": "text",
+                    "attachments": [],
+                    "flags": [],
+                }
+            ],
+        }
+
+    monkeypatch.setattr(app_main, "harvest_recent_mail", fake_harvest_recent_mail)
+    monkeypatch.setattr(app_main, "write_fixture", fake_write_fixture)
+
+    data = asyncio.run(app_main.api_offline_fetch_more(app_main.OfflineFetchMoreRequest(count=25)))
+
+    assert data["status"] == "success"
+    assert data["fetched"] == 1
+    assert data["target"] == 27
+    assert data["manifest"]["count"] == 3
+    assert data["data"][0]["uid"] == "3"
+    assert "body" not in data["data"][0]
+    assert harvest_calls[0]["target"] == 27
+    assert harvest_calls[0]["no_sleep"] is True

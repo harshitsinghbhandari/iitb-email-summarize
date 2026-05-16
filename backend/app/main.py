@@ -7,15 +7,18 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from db.store import OFFLINE_FIXTURE_FILE
+from db.store import MAIL_HARVEST_DIR, MAIL_RECORDS_FILE, OFFLINE_FIXTURE_FILE
 from mail_fetch.config import validate_config
 from mail_fetch.main import get_all_uids, get_email_by_uid, get_last_10_emails
 from notify.main import send_to_discord
+from scripts.harvest_recent_mail import harvest_recent_mail
+from scripts.prepare_mail_fixture import write_fixture
 from summarize_mail.main import get_summary, load_summaries
 
 logging.basicConfig(
@@ -44,6 +47,12 @@ app.add_middleware(
 
 OFFLINE_FIXTURE_PATH = OFFLINE_FIXTURE_FILE
 OFFLINE_FIXTURE_COMMAND = "python backend/scripts/prepare_mail_fixture.py"
+OFFLINE_FETCH_MORE_INCREMENT = int(os.getenv("OFFLINE_FETCH_MORE_INCREMENT", "25"))
+OFFLINE_FETCH_MORE_BATCH_SIZE = int(os.getenv("OFFLINE_FETCH_MORE_BATCH_SIZE", "10"))
+
+
+class OfflineFetchMoreRequest(BaseModel):
+    count: int = Field(default=OFFLINE_FETCH_MORE_INCREMENT, ge=1, le=250)
 
 
 @app.get("/api/health")
@@ -115,6 +124,52 @@ async def api_get_offline_emails():
 
     return {
         "status": "success",
+        "manifest": fixture.get("manifest", {}),
+        "data": emails,
+    }
+
+
+@app.post("/api/offline/fetch-more")
+async def api_offline_fetch_more(request: OfflineFetchMoreRequest | None = None):
+    """Fetch more IMAP mail into the offline fixture, then return the refreshed list."""
+    request = request or OfflineFetchMoreRequest()
+    try:
+        current_count = 0
+        if OFFLINE_FIXTURE_PATH.exists():
+            current_count = int(load_offline_fixture().get("manifest", {}).get("count") or 0)
+
+        target = current_count + request.count
+        harvest_state = harvest_recent_mail(
+            target=target,
+            batch_size=OFFLINE_FETCH_MORE_BATCH_SIZE,
+            base_delay=0,
+            jitter=0,
+            output_dir=MAIL_HARVEST_DIR,
+            no_sleep=True,
+        )
+        fixture = write_fixture(MAIL_RECORDS_FILE, OFFLINE_FIXTURE_PATH)
+    except ValueError as exc:
+        return JSONResponse(
+            status_code=400,
+            content={"status": "error", "message": str(exc)},
+        )
+    except Exception as exc:
+        logger.exception("Offline fetch-more failed")
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "message": f"Fetch more failed: {exc}"},
+        )
+
+    emails = [
+        {key: value for key, value in email.items() if key not in {"body", "html_body"}}
+        for email in fixture["emails"]
+        if isinstance(email, dict)
+    ]
+    return {
+        "status": "success",
+        "message": f"Fetched {harvest_state.get('fetched', 0)} new email(s).",
+        "fetched": harvest_state.get("fetched", 0),
+        "target": target,
         "manifest": fixture.get("manifest", {}),
         "data": emails,
     }

@@ -155,20 +155,24 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> int:
-    args = parse_args()
+def harvest_recent_mail(
+    target: int = 100,
+    batch_size: int = 10,
+    base_delay: float = 30,
+    jitter: float = 20,
+    output_dir: Path = DEFAULT_OUTPUT_DIR,
+    no_sleep: bool = False,
+) -> dict[str, Any]:
     missing = validate_config()
     if missing:
-        print(f"Missing mail configuration: {', '.join(missing)}")
-        return 1
+        raise ValueError(f"Missing mail configuration: {', '.join(missing)}")
 
-    if args.target <= 0 or args.batch_size <= 0:
-        print("--target and --batch-size must be positive")
-        return 1
+    if target <= 0 or batch_size <= 0:
+        raise ValueError("target and batch_size must be positive")
 
-    args.output_dir.mkdir(parents=True, exist_ok=True)
-    jsonl_path = args.output_dir / "emails.jsonl"
-    state_path = args.output_dir / "state.json"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    jsonl_path = output_dir / "emails.jsonl"
+    state_path = output_dir / "state.json"
 
     existing_uids = read_existing_uids(jsonl_path)
     print(f"Output: {jsonl_path}")
@@ -178,13 +182,14 @@ def main() -> int:
     context = _get_imap_context()
     state: dict[str, Any] = {
         "started_at": utc_now(),
-        "target": args.target,
-        "batch_size": args.batch_size,
-        "base_delay": args.base_delay,
-        "jitter": args.jitter,
+        "target": target,
+        "batch_size": batch_size,
+        "base_delay": base_delay,
+        "jitter": jitter,
         "output": str(jsonl_path),
         "batches": [],
     }
+    total_fetched = 0
 
     with MailBox(IMAP_SERVER, port=IMAP_PORT, ssl_context=context).login(
         IMAP_USERNAME,
@@ -192,7 +197,7 @@ def main() -> int:
         initial_folder=MAILBOX,
     ) as mailbox:
         all_uids = mailbox.uids("ALL")
-        target_uids = list(reversed(all_uids[-args.target :]))
+        target_uids = list(reversed(all_uids[-target:]))
         pending_uids = [str(uid) for uid in target_uids if str(uid) not in existing_uids]
 
         state["candidate_uids"] = len(target_uids)
@@ -204,9 +209,13 @@ def main() -> int:
 
         if not pending_uids:
             print("Nothing to do. All target UIDs are already harvested.")
-            return 0
+            state["finished_at"] = utc_now()
+            state["fetched"] = 0
+            state["harvested_total"] = len(existing_uids)
+            write_state(state_path, state)
+            return state
 
-        batches = chunks(pending_uids, args.batch_size)
+        batches = chunks(pending_uids, batch_size)
         for batch_index, batch_uids in enumerate(batches, start=1):
             print(f"\nBatch {batch_index}/{len(batches)}: {', '.join(batch_uids)}")
             fetched = 0
@@ -234,6 +243,7 @@ def main() -> int:
                 append_record(jsonl_path, record)
                 existing_uids.add(record["uid"])
                 fetched += 1
+                total_fetched += 1
                 print(f"  saved UID {record['uid']}: {record['subject'][:90]}")
 
             fetched_uids = {str(message.uid) for message in messages}
@@ -255,16 +265,34 @@ def main() -> int:
             if batch_index == len(batches):
                 break
 
-            delay = max(0, args.base_delay + random.uniform(-args.jitter, args.jitter))
+            delay = max(0, base_delay + random.uniform(-jitter, jitter))
             print(f"Sleeping {delay:.1f}s before next batch...")
-            if not args.no_sleep:
+            if not no_sleep:
                 time.sleep(delay)
 
     state["finished_at"] = utc_now()
+    state["fetched"] = total_fetched
     write_state(state_path, state)
     print(f"\nDone. Harvested total stored UIDs: {len(existing_uids)}")
     print(f"Data: {jsonl_path}")
     print(f"State: {state_path}")
+    return state
+
+
+def main() -> int:
+    args = parse_args()
+    try:
+        harvest_recent_mail(
+            target=args.target,
+            batch_size=args.batch_size,
+            base_delay=args.base_delay,
+            jitter=args.jitter,
+            output_dir=args.output_dir,
+            no_sleep=args.no_sleep,
+        )
+    except ValueError as exc:
+        print(str(exc))
+        return 1
     return 0
 
 

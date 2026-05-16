@@ -4,8 +4,8 @@ Vite + React + TypeScript SPA that talks to the FastAPI backend over JSON.
 
 ## Pages
 
-- `/` — offline fixture mail viewer with search, filters, HTML/text body modes,
-  AI summary, and Discord posting.
+- `/` — offline fixture mail viewer with search, filters, fetch-more actions,
+  HTML/text body modes, AI summary, and Discord posting.
 - `/offline` — same offline fixture viewer route.
 
 ## Local development

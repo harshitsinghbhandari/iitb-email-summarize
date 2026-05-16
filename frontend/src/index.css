@@ -434,6 +434,66 @@ button {
   line-height: 1.1;
 }
 
+.mail-fetch-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.85rem;
+}
+
+.mail-fetch-label {
+  color: #b8c4d5;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mail-fetch-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.mail-fetch-buttons button {
+  min-height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: #e8f0ff;
+  color: #1e3a8a;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.mail-fetch-buttons button:hover {
+  background: #ffffff;
+}
+
+.mail-fetch-buttons button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.mail-fetch-status {
+  border-radius: 8px;
+  padding: 0.55rem 0.6rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.mail-fetch-status.info {
+  background: rgba(16, 185, 129, 0.14);
+  color: #bbf7d0;
+}
+
+.mail-fetch-status.error {
+  background: rgba(248, 113, 113, 0.16);
+  color: #fecaca;
+}
+
 .mail-nav-list {
   display: flex;
   flex-direction: column;

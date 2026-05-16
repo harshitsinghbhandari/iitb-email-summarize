@@ -131,6 +131,7 @@ Seed examples are in `db/seeds/`.
 | `/api/email/{uid}/discord` | POST | Send the summary to Discord |
 | `/api/summarize-pending` | GET | Batch summarize unsummarized UIDs |
 | `/api/offline/emails` | GET | List from harvested fixture |
+| `/api/offline/fetch-more` | POST | Fetch more IMAP mail and rebuild the offline fixture |
 | `/api/offline/email/{uid}` | GET | Single email from fixture |
 | `/api/offline/email/{uid}/summary` | GET | Summarize fixture email without IMAP |
 | `/api/offline/email/{uid}/discord` | POST | Send fixture email summary to Discord |

@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Add mailbox-level buttons to fetch more offline emails and refresh the fixture.
 - Add offline email summary and Discord actions directly in the mail reader.
 - Add a standalone mail credential check script.
 - Add an experimental deadline extraction module for testing Ollama function calling with `functiongemma:270m`.

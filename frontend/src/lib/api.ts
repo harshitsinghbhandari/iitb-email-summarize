@@ -62,6 +62,8 @@ export interface OfflineEnvelope<T> {
   manifest?: { count?: number; generated_at?: string; uids?: string[] };
   message?: string;
   command?: string;
+  fetched?: number;
+  target?: number;
 }
 
 async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -86,6 +88,12 @@ export const api = {
       { method: "POST" },
     ),
   offlineEmails: () => getJson<OfflineEnvelope<EmailListItem[]>>("/api/offline/emails"),
+  offlineFetchMore: (count = 25) =>
+    getJson<OfflineEnvelope<EmailListItem[]>>("/api/offline/fetch-more", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ count }),
+    }),
   offlineEmail: (uid: string) =>
     getJson<OfflineEnvelope<EmailDetailData>>(
       `/api/offline/email/${encodeURIComponent(uid)}`,
